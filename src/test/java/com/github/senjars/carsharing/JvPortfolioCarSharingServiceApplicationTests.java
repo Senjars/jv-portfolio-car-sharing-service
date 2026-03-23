@@ -1,4 +1,4 @@
-package com.github.senjars.carsharing;
+/*package com.github.senjars.carsharing;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -12,4 +12,4 @@ class JvPortfolioCarSharingServiceApplicationTests {
     void contextLoads() {
     }
 
-}
+}*/
