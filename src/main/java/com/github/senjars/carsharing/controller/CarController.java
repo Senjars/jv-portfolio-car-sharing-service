@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -38,6 +39,7 @@ public class CarController {
                     @ApiResponse(responseCode = "400", description = "Bad request")
             }
     )
+    @PreAuthorize("hasRole('MANAGER')")
     public CarDto addCar(@Valid @RequestBody CreateCarDto createCarDto) {
         return carService.addCar(createCarDto);
     }
@@ -52,6 +54,7 @@ public class CarController {
                     @ApiResponse(responseCode = "404", description = "Car not found")
             }
     )
+    @PreAuthorize("hasRole('MANAGER')")
     public void removeCar(@PathVariable Long carId) {
         carService.removeCar(carId);
     }
@@ -66,6 +69,7 @@ public class CarController {
                     @ApiResponse(responseCode = "404", description = "Car not found")
             }
     )
+    @PreAuthorize("hasRole('MANAGER')")
     public CarDto updateCar(@PathVariable Long carId,
                             @Valid @RequestBody UpdateCarDto updateCarDto) {
         return carService.updateCar(carId, updateCarDto);
@@ -81,6 +85,7 @@ public class CarController {
                     @ApiResponse(responseCode = "404", description = "No cars found")
             }
     )
+    @PreAuthorize("hasAnyRole('MANAGER', 'CUSTOMER')")
     public Page<CarDto> getCars(Pageable pageable) {
         return carService.getCars(pageable);
     }
@@ -95,6 +100,7 @@ public class CarController {
                     @ApiResponse(responseCode = "404", description = "Car not found")
             }
     )
+    @PreAuthorize("hasAnyRole('MANAGER', 'CUSTOMER')")
     public CarDto getCarInfo(@PathVariable Long carId) {
         return carService.getCarInfo(carId);
     }

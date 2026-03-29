@@ -3,12 +3,15 @@ package com.github.senjars.carsharing.controller;
 import com.github.senjars.carsharing.dto.user.UpdateUserInfoDto;
 import com.github.senjars.carsharing.dto.user.UpdateUserRoleDto;
 import com.github.senjars.carsharing.dto.user.UserDto;
+import com.github.senjars.carsharing.model.user.User;
 import com.github.senjars.carsharing.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -37,6 +40,7 @@ public class UserController {
                             description = "User not found")
             }
     )
+    @PreAuthorize("hasRole('MANAGER')")
     public UserDto updateRole(@PathVariable Long userId,
                               @Valid @RequestBody UpdateUserRoleDto updateUserRoleDto) {
         return userService.updateRole(userId, updateUserRoleDto);
@@ -54,9 +58,10 @@ public class UserController {
                             description = "User not found")
             }
     )
-    public UserDto updateUserInfo(Long userId,
+    @PreAuthorize("hasRole('CUSTOMER')")
+    public UserDto updateUserInfo(@AuthenticationPrincipal User user,
                                   @Valid @RequestBody UpdateUserInfoDto updateUserInfoDto) {
-        return userService.updateUserInfo(userId, updateUserInfoDto);
+        return userService.updateUserInfo(user.getId(), updateUserInfoDto);
     }
 
     @ResponseStatus(HttpStatus.OK)
@@ -71,7 +76,8 @@ public class UserController {
                             description = "User not found")
             }
     )
-    public UserDto getUserInfo(Long userId) {
-        return userService.getUserInfo(userId);
+    @PreAuthorize("hasAnyRole('CUSTOMER', 'MANAGER')")
+    public UserDto getUserInfo(@AuthenticationPrincipal User user) {
+        return userService.getUserInfo(user.getId());
     }
 }
