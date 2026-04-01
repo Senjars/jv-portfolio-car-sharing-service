@@ -6,10 +6,12 @@ import com.github.senjars.carsharing.dto.user.UserLoginResponseDto;
 import com.github.senjars.carsharing.dto.user.UserRegistrationRequestDto;
 import com.github.senjars.carsharing.exception.RegistrationException;
 import com.github.senjars.carsharing.mapper.UserMapper;
+import com.github.senjars.carsharing.model.user.Role;
 import com.github.senjars.carsharing.model.user.RoleName;
 import com.github.senjars.carsharing.model.user.User;
 import com.github.senjars.carsharing.repository.RoleRepository;
 import com.github.senjars.carsharing.repository.UserRepository;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -44,8 +46,10 @@ public class AuthenticationService {
         }
 
         User user = userMapper.toEntity(requestDto);
-        user.setRole(roleRepository.findByName(RoleName.CUSTOMER).orElseThrow(
-                () -> new RegistrationException("Role " + RoleName.CUSTOMER + " not found")));
+
+        Role customerRole = roleRepository.findByName(RoleName.CUSTOMER).orElseThrow(
+                () -> new RegistrationException("Role " + RoleName.CUSTOMER + " not found"));
+        user.setRoles(Set.of(customerRole));
         user.setPassword(passwordEncoder.encode(requestDto.password()));
         User savedUser = userRepository.save(user);
 

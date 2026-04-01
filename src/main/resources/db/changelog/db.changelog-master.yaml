@@ -1,0 +1,11 @@
+databaseChangeLog:
+  - include:
+      file: db/changelog/changes/add-car-types-table.yaml
+  - include:
+      file: db/changelog/changes/add-cars-table.yaml
+  - include:
+      file: db/changelog/changes/add-roles-table.yaml
+  - include:
+      file: db/changelog/changes/add-users-table.yaml
+  - include:
+      file: db/changelog/changes/add-users-roles-table.yaml
