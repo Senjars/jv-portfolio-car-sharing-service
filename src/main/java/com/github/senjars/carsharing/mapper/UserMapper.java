@@ -19,11 +19,6 @@ public interface UserMapper {
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "roles", ignore = true)
     @Mapping(target = "password", ignore = true)
-    User toEntity(UserDto userDto);
-
-    @Mapping(target = "id", ignore = true)
-    @Mapping(target = "roles", ignore = true)
-    @Mapping(target = "password", ignore = true)
     User toEntity(UserRegistrationRequestDto requestDto);
 
     @Mapping(target = "id", ignore = true)

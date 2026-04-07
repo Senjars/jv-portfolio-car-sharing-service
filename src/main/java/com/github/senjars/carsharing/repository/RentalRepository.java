@@ -1,0 +1,11 @@
+package com.github.senjars.carsharing.repository;
+
+import com.github.senjars.carsharing.model.rental.Rental;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.stereotype.Repository;
+
+@Repository
+public interface RentalRepository extends JpaRepository<Rental, Long>,
+        JpaSpecificationExecutor<Rental> {
+}

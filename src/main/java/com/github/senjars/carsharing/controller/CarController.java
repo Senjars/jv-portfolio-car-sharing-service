@@ -82,10 +82,8 @@ public class CarController {
             description = "Retrieves a page of cars",
             responses = {
                     @ApiResponse(responseCode = "200", description = "Cars retrieved successfully"),
-                    @ApiResponse(responseCode = "404", description = "No cars found")
             }
     )
-    @PreAuthorize("hasAnyRole('MANAGER', 'CUSTOMER')")
     public Page<CarDto> getCars(Pageable pageable) {
         return carService.getCars(pageable);
     }
@@ -100,7 +98,6 @@ public class CarController {
                     @ApiResponse(responseCode = "404", description = "Car not found")
             }
     )
-    @PreAuthorize("hasAnyRole('MANAGER', 'CUSTOMER')")
     public CarDto getCarInfo(@PathVariable Long carId) {
         return carService.getCarInfo(carId);
     }
