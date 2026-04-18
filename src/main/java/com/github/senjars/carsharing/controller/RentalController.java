@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -18,6 +19,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -27,6 +29,7 @@ public class RentalController {
 
     private final RentalService rentalService;
 
+    @ResponseStatus(HttpStatus.CREATED)
     @PostMapping
     @Operation(
             summary = "Rent a car",
@@ -42,6 +45,7 @@ public class RentalController {
         return rentalService.rentCar(user.getId(), requestDto);
     }
 
+    @ResponseStatus(HttpStatus.OK)
     @PostMapping("/return")
     @Operation(
             summary = "Return a car",
@@ -57,6 +61,7 @@ public class RentalController {
         return rentalService.returnCar(user.getId(), rentalId);
     }
 
+    @ResponseStatus(HttpStatus.OK)
     @GetMapping
     @Operation(
             summary = "Get all rentals",
@@ -79,6 +84,7 @@ public class RentalController {
         return rentalService.getRentalsByUserIdAndStatus(targetUserId, isActive, pageable);
     }
 
+    @ResponseStatus(HttpStatus.OK)
     @GetMapping("/{rentalId}")
     @Operation(
             summary = "Get rental by ID",

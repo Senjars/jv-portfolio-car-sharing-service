@@ -40,7 +40,11 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**", "/swagger-ui/**", "/v3/api-docs/**")
                         .permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/payments/webhook").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/cars", "/api/cars/**")
+                        .permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/payments/success",
+                                "/api/payments/cancel")
                         .permitAll()
                         .anyRequest()
                         .authenticated()
