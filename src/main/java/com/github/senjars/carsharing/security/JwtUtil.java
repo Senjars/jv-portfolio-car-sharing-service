@@ -1,5 +1,6 @@
 package com.github.senjars.carsharing.security;
 
+import com.github.senjars.carsharing.config.JwtConfig;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.Jwts;
@@ -8,7 +9,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.function.Function;
 import javax.crypto.SecretKey;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -17,11 +17,9 @@ public class JwtUtil {
     private final SecretKey secretKey;
     private final long expirationTime;
 
-    public JwtUtil(
-            @Value("${jwt.secret}") String secretKey,
-            @Value("${jwt.expiration}") long expirationTime) {
-        this.secretKey = Keys.hmacShaKeyFor(secretKey.getBytes(StandardCharsets.UTF_8));
-        this.expirationTime = expirationTime;
+    public JwtUtil(JwtConfig jwtConfig) {
+        this.secretKey = Keys.hmacShaKeyFor(jwtConfig.getSecret().getBytes(StandardCharsets.UTF_8));
+        this.expirationTime = jwtConfig.getExpiration();
     }
 
     public String generateToken(String username) {
