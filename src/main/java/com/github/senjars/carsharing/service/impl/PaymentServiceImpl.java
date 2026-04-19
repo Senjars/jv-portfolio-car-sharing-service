@@ -12,6 +12,7 @@ import com.github.senjars.carsharing.model.payment.PaymentStatus;
 import com.github.senjars.carsharing.model.payment.PaymentType;
 import com.github.senjars.carsharing.model.rental.Rental;
 import com.github.senjars.carsharing.model.user.User;
+import com.github.senjars.carsharing.notify.TelegramService;
 import com.github.senjars.carsharing.repository.CarRepository;
 import com.github.senjars.carsharing.repository.PaymentRepository;
 import com.github.senjars.carsharing.repository.RentalRepository;
@@ -40,6 +41,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final UserRepository userRepository;
     private final StripeProvider stripeProvider;
     private final PaymentMapper paymentMapper;
+    private final TelegramService telegramService;
 
     @Override
     @Transactional
@@ -156,6 +158,22 @@ public class PaymentServiceImpl implements PaymentService {
 
         payment.setStatus(PaymentStatus.PAID);
         Payment savedPayment = paymentRepository.save(payment);
+
+        try {
+            telegramService.sendMessage(String.format(
+                    "✅ **Payment Confirmed**\n\n"
+                            + "💰 **Amount:** %s\n"
+                            + "🆔 **Payment ID:** %d\n"
+                            + "🧾 **Rental ID:** %d\n"
+                            + "📌 **Type:** %s",
+                    savedPayment.getAmountToPay(),
+                    savedPayment.getId(),
+                    savedPayment.getRentalId(),
+                    savedPayment.getType()
+            ));
+        } catch (Exception e) {
+            System.err.println("Failed to send Telegram notification: " + e.getMessage());
+        }
 
         return paymentMapper.toDto(savedPayment);
     }

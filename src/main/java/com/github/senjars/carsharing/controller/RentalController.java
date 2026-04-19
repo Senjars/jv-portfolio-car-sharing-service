@@ -3,6 +3,7 @@ package com.github.senjars.carsharing.controller;
 import com.github.senjars.carsharing.dto.rental.CreateRentalRequestDto;
 import com.github.senjars.carsharing.dto.rental.RentalDto;
 import com.github.senjars.carsharing.model.user.User;
+import com.github.senjars.carsharing.notify.RentalNotificationScheduler;
 import com.github.senjars.carsharing.service.RentalService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -12,6 +13,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -28,6 +31,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class RentalController {
 
     private final RentalService rentalService;
+    private final RentalNotificationScheduler rentalNotificationScheduler;
 
     @ResponseStatus(HttpStatus.CREATED)
     @PostMapping
@@ -57,7 +61,7 @@ public class RentalController {
             }
     )
     public RentalDto returnCar(@AuthenticationPrincipal User user,
-                               @Valid Long rentalId) {
+                               @Valid @RequestParam Long rentalId) {
         return rentalService.returnCar(user.getId(), rentalId);
     }
 
@@ -101,6 +105,23 @@ public class RentalController {
     public RentalDto getRentalById(@AuthenticationPrincipal User user,
                                    @PathVariable Long rentalId) {
         return rentalService.getRentalById(rentalId, user.getId(), isManager(user));
+    }
+
+    @PostMapping("/trigger-overdue-check")
+    @PreAuthorize("hasRole('MANAGER')")
+    @Operation(
+            summary = "Trigger overdue check",
+            description = "Manually triggers the check for overdue rentals",
+            responses = {
+                    @ApiResponse(responseCode = "200",
+                            description = "Overdue check triggered successfully"),
+                    @ApiResponse(responseCode = "403",
+                            description = "Forbidden")
+            }
+    )
+    public ResponseEntity<Void> triggerOverdueCheck() {
+        rentalNotificationScheduler.checkOverdueRentals();
+        return ResponseEntity.ok().build();
     }
 
     private boolean isManager(User user) {

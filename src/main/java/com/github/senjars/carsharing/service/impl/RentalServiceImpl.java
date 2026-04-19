@@ -10,6 +10,7 @@ import com.github.senjars.carsharing.exception.RentalAlreadyReturnedException;
 import com.github.senjars.carsharing.mapper.RentalMapper;
 import com.github.senjars.carsharing.model.car.Car;
 import com.github.senjars.carsharing.model.rental.Rental;
+import com.github.senjars.carsharing.notify.TelegramService;
 import com.github.senjars.carsharing.repository.CarRepository;
 import com.github.senjars.carsharing.repository.RentalRepository;
 import com.github.senjars.carsharing.service.RentalService;
@@ -28,6 +29,7 @@ public class RentalServiceImpl implements RentalService {
     private final RentalRepository rentalRepository;
     private final RentalMapper rentalMapper;
     private final CarRepository carRepository;
+    private final TelegramService telegramService;
 
     @Override
     @Transactional
@@ -50,6 +52,22 @@ public class RentalServiceImpl implements RentalService {
         Rental rental = rentalMapper.toEntity(requestDto);
         rental.setUserId(userId);
         Rental savedRental = rentalRepository.save(rental);
+
+        try {
+            telegramService.sendMessage(String.format(
+                    "🚗 **New Rental Created**\n\n"
+                            + "👤 **User ID:** %d\n"
+                            + "🆔 **Car ID:** %d\n"
+                            + "📅 **From:** %s\n"
+                            + "🏁 **To:** %s",
+                    userId,
+                    requestDto.carId(),
+                    requestDto.rentalDate(),
+                    requestDto.returnDate()
+            ));
+        } catch (Exception e) {
+            System.err.println("Failed to send Telegram notification: " + e.getMessage());
+        }
 
         return rentalMapper.toDto(savedRental);
     }
