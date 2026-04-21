@@ -6,12 +6,15 @@ import com.github.senjars.carsharing.exception.AccessDeniedException;
 import com.github.senjars.carsharing.exception.BadRequestException;
 import com.github.senjars.carsharing.exception.EntityInventoryException;
 import com.github.senjars.carsharing.exception.EntityNotFoundException;
+import com.github.senjars.carsharing.exception.PaymentException;
 import com.github.senjars.carsharing.exception.RentalAlreadyReturnedException;
 import com.github.senjars.carsharing.mapper.RentalMapper;
 import com.github.senjars.carsharing.model.car.Car;
+import com.github.senjars.carsharing.model.payment.PaymentStatus;
 import com.github.senjars.carsharing.model.rental.Rental;
 import com.github.senjars.carsharing.notify.TelegramService;
 import com.github.senjars.carsharing.repository.CarRepository;
+import com.github.senjars.carsharing.repository.PaymentRepository;
 import com.github.senjars.carsharing.repository.RentalRepository;
 import com.github.senjars.carsharing.service.RentalService;
 import java.time.LocalDate;
@@ -30,10 +33,20 @@ public class RentalServiceImpl implements RentalService {
     private final RentalMapper rentalMapper;
     private final CarRepository carRepository;
     private final TelegramService telegramService;
+    private final PaymentRepository paymentRepository;
 
     @Override
     @Transactional
     public RentalDto rentCar(Long userId, CreateRentalRequestDto requestDto) {
+        boolean hasPendingPayment = paymentRepository.existsByUserIdAndStatus(
+                userId,
+                PaymentStatus.PENDING
+        );
+
+        if (hasPendingPayment) {
+            throw new PaymentException("You have an unpaid rental. "
+                    + "Please settle your outstanding payments before borrowing new books/cars.");
+        }
         if (requestDto.rentalDate().isAfter(requestDto.returnDate())) {
             throw new BadRequestException("Rental date must be before return date");
         }

@@ -23,8 +23,10 @@ import com.stripe.exception.StripeException;
 import com.stripe.model.Event;
 import com.stripe.model.checkout.Session;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Objects;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -46,73 +48,39 @@ public class PaymentServiceImpl implements PaymentService {
     @Override
     @Transactional
     public PaymentResponseDto createPayment(Long userId, Long rentalId) {
+        Rental rental = getVerifiedRental(userId, rentalId);
 
-        Rental rental = rentalRepository.findById(rentalId).orElseThrow(
-                () -> new EntityNotFoundException("Rental with id: " + rentalId + " not found"));
+        Optional<Payment> existingPayment = paymentRepository.findByRentalId(rentalId);
 
-        if (!rental.getUserId().equals(userId)) {
-            throw new AccessDeniedException("You are not authorized to create this payment");
+        if (existingPayment.isPresent()) {
+            Payment payment = existingPayment.get();
+
+            if (payment.getStatus() == PaymentStatus.PAID) {
+                throw new PaymentAlreadyProcessedException("Payment for rental with id: "
+                        + rentalId + " already exists and is paid");
+            }
+
+            if (payment.getStatus() == PaymentStatus.EXPIRED) {
+                return renewExistingPayment(userId, rentalId);
+            }
+
+            if (payment.getStatus() == PaymentStatus.PENDING) {
+                return paymentMapper.toDto(payment);
+            }
         }
 
-        if (paymentRepository.existsByRentalId(rentalId)) {
-            throw new PaymentAlreadyProcessedException("Payment for rental with id: "
-                    + rentalId + " already exists");
-        }
-
-        BigDecimal amountToPay = calculatePayment(rental);
-        String description = "Payment for rental with id: " + rentalId;
-
-        Session session = null;
-        try {
-            session = stripeProvider.createSession(amountToPay, description);
-        } catch (StripeException e) {
-            throw new PaymentException("Error creating payment session: " + e.getMessage()
-                    + ", rental id: " + rentalId);
-        }
-
-        PaymentType type = (rental.getActualReturnDate() != null
-                && rental.getActualReturnDate().isAfter(rental.getReturnDate())
-                ? PaymentType.FINE : PaymentType.PAYMENT);
-
-        Payment payment = new Payment();
-        payment.setRentalId(rentalId);
-        payment.setStatus(PaymentStatus.PENDING);
-        payment.setAmountToPay(amountToPay);
-        payment.setSessionId(session.getId());
-        payment.setSessionUrl(session.getUrl());
-        payment.setType(type);
-
-        Payment savedPayment = paymentRepository.save(payment);
-        return paymentMapper.toDto(savedPayment);
+        return createNewPayment(rental);
     }
 
     @Override
     @Transactional
-    public BigDecimal calculatePayment(Rental rental) {
-        long plannedDays = ChronoUnit.DAYS.between(rental.getRentalDate(), rental.getReturnDate());
+    public PaymentResponseDto renewExistingPayment(Long userId, Long rentalId) {
+        getVerifiedRental(userId, rentalId);
 
-        Car car = carRepository.findById(rental.getCarId()).orElseThrow(
-                () -> new EntityNotFoundException("Car not found"));
+        Payment payment = paymentRepository.findByRentalId(rentalId)
+                .orElseThrow(() -> new EntityNotFoundException("Payment not found"));
 
-        BigDecimal paymentAmount = car.getDailyFee()
-                .multiply(BigDecimal.valueOf(Math.max(plannedDays, 1)));
-
-        if (rental.getActualReturnDate() != null
-                && rental.getActualReturnDate().isAfter(rental.getReturnDate())) {
-
-            double fineMultiplayer = 1.5;
-            long daysLate = ChronoUnit.DAYS.between(rental.getReturnDate(),
-                    rental.getActualReturnDate());
-
-            BigDecimal fineValue = car.getDailyFee()
-                    .multiply(BigDecimal.valueOf(daysLate))
-                    .multiply(BigDecimal.valueOf(fineMultiplayer));
-
-            paymentAmount = paymentAmount.add(fineValue);
-            return paymentAmount;
-        }
-
-        return paymentAmount;
+        return internalRenew(payment, rentalId);
     }
 
     @Override
@@ -200,5 +168,89 @@ public class PaymentServiceImpl implements PaymentService {
         } catch (StripeException e) {
             throw new PaymentException("Webhook processing failed" + ": " + e.getMessage());
         }
+    }
+
+    private BigDecimal calculatePayment(Rental rental) {
+        long plannedDays = ChronoUnit.DAYS.between(rental.getRentalDate(), rental.getReturnDate());
+
+        Car car = carRepository.findById(rental.getCarId()).orElseThrow(
+                () -> new EntityNotFoundException("Car not found"));
+
+        BigDecimal paymentAmount = car.getDailyFee()
+                .multiply(BigDecimal.valueOf(Math.max(plannedDays, 1)));
+
+        if (rental.getActualReturnDate() != null
+                && rental.getActualReturnDate().isAfter(rental.getReturnDate())) {
+
+            double fineMultiplayer = 1.5;
+            long daysLate = ChronoUnit.DAYS.between(rental.getReturnDate(),
+                    rental.getActualReturnDate());
+
+            BigDecimal fineValue = car.getDailyFee()
+                    .multiply(BigDecimal.valueOf(daysLate))
+                    .multiply(BigDecimal.valueOf(fineMultiplayer));
+
+            paymentAmount = paymentAmount.add(fineValue);
+            return paymentAmount;
+        }
+
+        return paymentAmount;
+    }
+
+    private Rental getVerifiedRental(Long userId, Long rentalId) {
+        Rental rental = rentalRepository.findById(rentalId).orElseThrow(
+                () -> new EntityNotFoundException("Rental with id: " + rentalId + " not found"));
+
+        if (!rental.getUserId().equals(userId)) {
+            throw new AccessDeniedException("You are not authorized to create this payment");
+        }
+        return rental;
+    }
+
+    private PaymentResponseDto createNewPayment(Rental rental) {
+        BigDecimal amountToPay = calculatePayment(rental);
+        String description = "Payment for rental with id: " + rental.getId();
+        Session session = createStripeSession(amountToPay, description, rental.getId());
+
+        Payment payment = new Payment();
+        payment.setRentalId(rental.getId());
+        payment.setStatus(PaymentStatus.PENDING);
+        payment.setAmountToPay(amountToPay);
+        payment.setSessionId(session.getId());
+        payment.setSessionUrl(session.getUrl());
+        payment.setType(determinePaymentType(rental));
+
+        return paymentMapper.toDto(paymentRepository.save(payment));
+    }
+
+    private PaymentType determinePaymentType(Rental rental) {
+        if (rental.getActualReturnDate() != null
+                && rental.getActualReturnDate().isAfter(rental.getReturnDate())) {
+            return PaymentType.FINE;
+        }
+        return PaymentType.PAYMENT;
+    }
+
+    private Session createStripeSession(BigDecimal amountToPay, String description, Long rentalId) {
+        Session session = null;
+        try {
+            session = stripeProvider.createSession(amountToPay, description);
+        } catch (StripeException e) {
+            throw new PaymentException("Error creating payment session: " + e.getMessage()
+                    + ", rental id: " + rentalId);
+        }
+        return session;
+    }
+
+    private PaymentResponseDto internalRenew(Payment payment, Long rentalId) {
+        String description = "Renewal for rental: " + rentalId;
+        Session session = createStripeSession(payment.getAmountToPay(), description, rentalId);
+
+        payment.setSessionId(session.getId());
+        payment.setSessionUrl(session.getUrl());
+        payment.setStatus(PaymentStatus.PENDING);
+        payment.setCreatedAt(LocalDateTime.now());
+
+        return paymentMapper.toDto(paymentRepository.save(payment));
     }
 }

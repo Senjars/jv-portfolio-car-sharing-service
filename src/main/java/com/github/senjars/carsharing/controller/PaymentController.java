@@ -52,6 +52,24 @@ public class PaymentController {
     }
 
     @ResponseStatus(HttpStatus.OK)
+    @PostMapping("/renew")
+    @Operation(
+            summary = "Renew existing payment",
+            description = "Renews an existing payment for a rental",
+            responses = {
+                    @ApiResponse(responseCode = "200",
+                            description = "Payment renewed successfully"),
+                    @ApiResponse(responseCode = "400",
+                            description = "Bad request"),
+            }
+    )
+    @PreAuthorize("hasAnyRole('CUSTOMER', 'MANAGER')")
+    public PaymentResponseDto renewPayment(@AuthenticationPrincipal User user,
+                                           @RequestParam Long rentalId) {
+        return paymentService.renewExistingPayment(user.getId(), rentalId);
+    }
+
+    @ResponseStatus(HttpStatus.OK)
     @GetMapping("/success")
     @Operation(
             summary = "Handle successful payment",

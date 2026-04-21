@@ -29,3 +29,17 @@ databaseChangeLog:
               - column:
                   name: status
                   type: varchar(50)
+
+  - changeSet:
+        id: add-created-at-to-payments
+        author: senjars
+        changes:
+          - addColumn:
+              tableName: payments
+              columns:
+                - column:
+                    name: created_at
+                    type: timestamp
+                    defaultValueComputed: CURRENT_TIMESTAMP
+                    constraints:
+                      nullable: false
