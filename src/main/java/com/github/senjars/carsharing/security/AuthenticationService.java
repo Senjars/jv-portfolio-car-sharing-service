@@ -55,5 +55,4 @@ public class AuthenticationService {
 
         return userMapper.toDto(savedUser);
     }
-
 }
