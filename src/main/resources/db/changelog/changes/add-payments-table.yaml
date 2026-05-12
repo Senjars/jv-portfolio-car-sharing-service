@@ -29,6 +29,11 @@ databaseChangeLog:
               - column:
                   name: status
                   type: varchar(50)
+              - column:
+                  name: payment_type
+                  type: varchar(50)
+                  constraints:
+                    nullable: false
 
   - changeSet:
         id: add-created-at-to-payments
