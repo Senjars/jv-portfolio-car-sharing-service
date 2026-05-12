@@ -4,7 +4,6 @@ import com.github.senjars.carsharing.dto.payment.CreatePaymentRequestDto;
 import com.github.senjars.carsharing.dto.payment.PaymentResponseDto;
 import com.github.senjars.carsharing.model.user.User;
 import com.github.senjars.carsharing.service.PaymentService;
-import com.github.senjars.carsharing.stripe.StripeProvider;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import jakarta.validation.Valid;
@@ -29,7 +28,6 @@ import org.springframework.web.bind.annotation.RestController;
 public class PaymentController {
 
     private final PaymentService paymentService;
-    private final StripeProvider stripeProvider;
 
     @ResponseStatus(HttpStatus.CREATED)
     @PostMapping

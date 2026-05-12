@@ -29,7 +29,7 @@ public class Payment {
     private PaymentStatus status;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(name = "payment_type", nullable = false)
     private PaymentType type;
 
     @Column(nullable = false, unique = true)
