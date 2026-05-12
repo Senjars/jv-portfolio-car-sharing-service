@@ -2,6 +2,7 @@ package com.github.senjars.carsharing.repository;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
+import com.github.senjars.carsharing.config.TestcontainersConfiguration;
 import com.github.senjars.carsharing.model.car.Car;
 import com.github.senjars.carsharing.model.car.CarType;
 import com.github.senjars.carsharing.model.car.TypeName;
@@ -12,13 +13,15 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
 @ActiveProfiles("test")
 @DataJpaTest
 @Transactional
-@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.ANY)
+@Import(TestcontainersConfiguration.class)
+@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 public class CarRepositoryTest {
 
     @Autowired
