@@ -1,0 +1,54 @@
+databaseChangeLog:
+  - changeSet:
+      id: insert-default-roles
+      author: senjars
+      context: "!test"
+      changes:
+        - insert:
+            tableName: roles
+            columns:
+              - column: { name: id, valueNumeric: 1 }
+              - column: { name: role_name, value: "CUSTOMER" }
+        - insert:
+            tableName: roles
+            columns:
+              - column: { name: id, valueNumeric: 2 }
+              - column: { name: role_name, value: "MANAGER" }
+
+  - changeSet:
+      id: insert-initial-users
+      author: senjars
+      context: "!test"
+      changes:
+        - insert:
+            tableName: users
+            columns:
+              - column: { name: id, valueNumeric: 1 }
+              - column: { name: email, value: "customer@carsharing.com" }
+              - column: { name: first_name, value: "Jan" }
+              - column: { name: last_name, value: "Customer" }
+              - column: { name: password, value: "$2a$10$0xQlqXuv/gTh278KTJvZneXSRy7GEb0qLRi1.yb4g/5nMXvf/ySIW" }
+        - insert:
+            tableName: users
+            columns:
+              - column: { name: id, valueNumeric: 2 }
+              - column: { name: email, value: "manager@carsharing.com" }
+              - column: { name: first_name, value: "Anna" }
+              - column: { name: last_name, value: "Manager" }
+              - column: { name: password, value: "$2a$10$0xQlqXuv/gTh278KTJvZneXSRy7GEb0qLRi1.yb4g/5nMXvf/ySIW" }
+
+  - changeSet:
+      id: assign-initial-roles
+      author: senjars
+      context: "!test"
+      changes:
+        - insert:
+            tableName: users_roles
+            columns:
+              - column: { name: user_id, valueNumeric: 1 }
+              - column: { name: role_id, valueNumeric: 1 }
+        - insert:
+            tableName: users_roles
+            columns:
+              - column: { name: user_id, valueNumeric: 2 }
+              - column: { name: role_id, valueNumeric: 2 }

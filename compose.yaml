@@ -1,9 +1,39 @@
 services:
-  postgres:
-    image: 'postgres:latest'
+  db:
+    image: mysql:8.0
+    container_name: carsharing-db
+    restart: always
     environment:
-      - 'POSTGRES_DB=mydatabase'
-      - 'POSTGRES_PASSWORD=secret'
-      - 'POSTGRES_USER=myuser'
+      MYSQL_DATABASE: carsharing_db
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
     ports:
-      - '5432'
+      - "3307:3306"
+    volumes:
+      - ./data/db:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  app:
+    build: .
+    container_name: carsharing-app
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    environment:
+      DB_URL: jdbc:mysql://db:3306/carsharing_db
+      DB_USERNAME: root
+      DB_PASSWORD: ${DB_PASSWORD}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s

@@ -1,0 +1,22 @@
+databaseChangeLog:
+  - changeSet:
+      id: 1
+      author: senjars
+      changes:
+        - createTable:
+            tableName: car_types
+            columns:
+              - column:
+                  name: id
+                  type: bigint
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+                    primaryKeyName: pk_car_types
+              - column:
+                  name: type_name
+                  type: varchar(255)
+                  constraints:
+                    nullable: false
+                    unique: true
