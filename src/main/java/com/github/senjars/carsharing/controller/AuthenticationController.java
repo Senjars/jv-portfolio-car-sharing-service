@@ -38,7 +38,7 @@ public class AuthenticationController {
                             description = "Bad request")
             }
     )
-    public UserLoginResponseDto login(@RequestBody @Valid UserLoginRequestDto requestDto) {
+    public UserLoginResponseDto login(@Valid @RequestBody UserLoginRequestDto requestDto) {
         return authenticationService.login(requestDto);
     }
 
@@ -54,7 +54,7 @@ public class AuthenticationController {
                             description = "Bad request")
             }
     )
-    public UserDto register(@RequestBody @Valid UserRegistrationRequestDto requestDto)
+    public UserDto register(@Valid @RequestBody UserRegistrationRequestDto requestDto)
             throws RegistrationException {
         return authenticationService.register(requestDto);
     }

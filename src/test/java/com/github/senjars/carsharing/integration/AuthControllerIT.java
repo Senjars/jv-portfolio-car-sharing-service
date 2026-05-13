@@ -13,6 +13,7 @@ import com.github.senjars.carsharing.dto.user.UserRegistrationRequestDto;
 import com.github.senjars.carsharing.model.user.Role;
 import com.github.senjars.carsharing.model.user.RoleName;
 import com.github.senjars.carsharing.model.user.User;
+import com.github.senjars.carsharing.notify.TelegramService;
 import com.github.senjars.carsharing.repository.RoleRepository;
 import com.github.senjars.carsharing.repository.UserRepository;
 import com.github.senjars.carsharing.security.JwtUtil;
@@ -27,6 +28,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -55,18 +57,18 @@ public class AuthControllerIT {
     @Autowired
     private RoleRepository roleRepository;
 
+    @MockitoBean
+    private TelegramService telegramService;
+
     @BeforeEach
     void setUp() {
-        // Czyścimy bazę, żeby testy były odizolowane
         userRepository.deleteAll();
         roleRepository.deleteAll();
 
-        // Dodajemy rolę CUSTOMER, bo serwis rejestracji jej szuka
         Role customerRole = new Role();
         customerRole.setName(RoleName.CUSTOMER);
         roleRepository.save(customerRole);
 
-        // Jeśli Twój system ma też adminów, możesz dodać drugą
         Role adminRole = new Role();
         adminRole.setName(RoleName.MANAGER);
         roleRepository.save(adminRole);
@@ -144,5 +146,26 @@ public class AuthControllerIT {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(wrongLoginRequest)))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("Register - Should reject when passwords don't match")
+    void register_PasswordMismatch_Returns400() throws Exception {
+        // GIVEN
+        String jsonBody = """
+                {
+                    "email": "test@example.com",
+                    "password": "password123",
+                    "repeatPassword": "different123",
+                    "firstName": "John",
+                    "lastName": "Doe"
+                }
+                """;
+
+        // WHEN & THEN
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonBody))
+                .andExpect(status().isBadRequest());
     }
 }
