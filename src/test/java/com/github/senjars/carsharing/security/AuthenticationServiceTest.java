@@ -1,4 +1,4 @@
-package com.github.senjars.carsharing.service;
+package com.github.senjars.carsharing.security;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -7,7 +7,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.github.senjars.carsharing.dto.user.UserDto;
@@ -21,8 +20,6 @@ import com.github.senjars.carsharing.model.user.RoleName;
 import com.github.senjars.carsharing.model.user.User;
 import com.github.senjars.carsharing.repository.RoleRepository;
 import com.github.senjars.carsharing.repository.UserRepository;
-import com.github.senjars.carsharing.security.AuthenticationService;
-import com.github.senjars.carsharing.security.JwtUtil;
 import java.util.Optional;
 import java.util.Set;
 import org.junit.jupiter.api.DisplayName;

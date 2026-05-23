@@ -70,10 +70,9 @@ public class CarControllerTest {
         CreateCarDto createCarDto = createCreateCarDto();
         CarDto expectedCarDto = createCarDto();
 
-        // WHEN
         when(carService.addCar(any(CreateCarDto.class))).thenReturn(expectedCarDto);
 
-        // THEN
+        // WHEN & THEN
         mockMvc.perform(post("/api/cars")
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
@@ -148,11 +147,11 @@ public class CarControllerTest {
     @DisplayName("Should return 404 Not Found when trying to remove a non-existent car")
     @WithMockUser(username = "testUser", roles = "MANAGER")
     void removeCar_nonExistentCar_returnsNotFound() throws Exception {
-        // WHEN
+        // GIVEN
         doThrow(new EntityNotFoundException("Car not found"))
                 .when(carService).removeCar(1L);
 
-        // THEN
+        // WHEN & THEN
         mockMvc.perform(delete("/api/cars/{carId}", 1L)
                         .with(csrf()))
                 .andExpect(status().isNotFound());
@@ -166,10 +165,9 @@ public class CarControllerTest {
         UpdateCarDto updateCarDto = createUpdateCarDto();
         CarDto expectedCarDto = createCarDto();
 
-        // WHEN
         when(carService.updateCar(eq(1L), any(UpdateCarDto.class))).thenReturn(expectedCarDto);
 
-        // THEN
+        // WHEN & THEN
         mockMvc.perform(patch("/api/cars/{carId}", 1L)
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
@@ -186,11 +184,10 @@ public class CarControllerTest {
         // GIVEN
         UpdateCarDto updateCarDto = createUpdateCarDto();
 
-        // WHEN
         when(carService.updateCar(eq(1L), any(UpdateCarDto.class)))
                 .thenThrow(new EntityNotFoundException("Car not found"));
 
-        // THEN
+        // WHEN & THEN
         mockMvc.perform(patch("/api/cars/{carId}", 1L)
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
@@ -236,10 +233,9 @@ public class CarControllerTest {
         CarDto carDto = createCarDto();
         Page<CarDto> carPage = new PageImpl<>(List.of(carDto), pageable, 1);
 
-        // WHEN
         when(carService.getCars(any(Pageable.class))).thenReturn(carPage);
 
-        // THEN
+        // WHEN & THEN
         mockMvc.perform(get("/api/cars"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[0].id").value(1L))
@@ -254,10 +250,9 @@ public class CarControllerTest {
         // GIVEN
         CarDto expectedCarDto = createCarDto();
 
-        // WHEN
         when(carService.getCarInfo(1L)).thenReturn(expectedCarDto);
 
-        // THEN
+        // WHEN & THEN
         mockMvc.perform(get("/api/cars/{carId}", 1L))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(1L))
@@ -269,11 +264,11 @@ public class CarControllerTest {
     @DisplayName("Should return 404 Not Found when requesting info for a non-existent car")
     @WithMockUser(username = "testUser")
     void getCarInfo_nonExistentCar_returnsNotFound() throws Exception {
-        // WHEN
+        // GIVEN
         when(carService.getCarInfo(999L))
                 .thenThrow(new EntityNotFoundException("Car not found"));
 
-        // THEN
+        // WHEN & THEN
         mockMvc.perform(get("/api/cars/{carId}", 999L))
                 .andExpect(status().isNotFound());
     }

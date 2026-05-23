@@ -9,7 +9,12 @@ import static org.mockito.Mockito.when;
 
 import com.github.senjars.carsharing.dto.rental.CreateRentalRequestDto;
 import com.github.senjars.carsharing.dto.rental.RentalDto;
+import com.github.senjars.carsharing.exception.AccessDeniedException;
+import com.github.senjars.carsharing.exception.BadRequestException;
+import com.github.senjars.carsharing.exception.EntityInventoryException;
 import com.github.senjars.carsharing.exception.EntityNotFoundException;
+import com.github.senjars.carsharing.exception.PaymentException;
+import com.github.senjars.carsharing.exception.RentalAlreadyReturnedException;
 import com.github.senjars.carsharing.mapper.RentalMapper;
 import com.github.senjars.carsharing.model.car.Car;
 import com.github.senjars.carsharing.model.car.CarType;
@@ -17,6 +22,7 @@ import com.github.senjars.carsharing.model.car.TypeName;
 import com.github.senjars.carsharing.model.payment.PaymentStatus;
 import com.github.senjars.carsharing.model.rental.Rental;
 import com.github.senjars.carsharing.model.user.User;
+import com.github.senjars.carsharing.notify.TelegramService;
 import com.github.senjars.carsharing.repository.CarRepository;
 import com.github.senjars.carsharing.repository.PaymentRepository;
 import com.github.senjars.carsharing.repository.RentalRepository;
@@ -55,6 +61,128 @@ public class RentalServiceImplTest {
     @Mock
     private PaymentRepository paymentRepository;
 
+    @Mock
+    private TelegramService telegramService;
+
+    @Test
+    @DisplayName("Should throw PaymentException when user has pending payments")
+    void rentCar_pendingPayments_throwsPaymentException() {
+        // GIVEN
+        Long userId = 1L;
+        CreateRentalRequestDto request = new CreateRentalRequestDto(
+                1L, LocalDate.now(), LocalDate.now().plusDays(1));
+
+        when(paymentRepository.existsByUserIdAndStatus(userId, PaymentStatus.PENDING))
+                .thenReturn(true);
+
+        // WHEN & THEN
+        assertThrows(PaymentException.class, () -> rentalService.rentCar(userId, request));
+    }
+
+    @Test
+    @DisplayName("Should throw BadRequestException when rental date is after return date")
+    void rentCar_invalidDates_throwsBadRequestException() {
+        // GIVEN
+        Long userId = 1L;
+        CreateRentalRequestDto request = new CreateRentalRequestDto(
+                1L, LocalDate.now().plusDays(5), LocalDate.now().plusDays(1));
+
+        when(paymentRepository.existsByUserIdAndStatus(userId, PaymentStatus.PENDING))
+                .thenReturn(false);
+
+        // WHEN & THEN
+        assertThrows(BadRequestException.class, () -> rentalService.rentCar(userId, request));
+    }
+
+    @Test
+    @DisplayName("Should throw EntityInventoryException when car inventory is 0")
+    void rentCar_outOfStock_throwsEntityInventoryException() {
+        // GIVEN
+        Long userId = 1L;
+        CreateRentalRequestDto request = new CreateRentalRequestDto(
+                1L, LocalDate.now(), LocalDate.now().plusDays(1));
+        Car car = new Car();
+        car.setInventory(0); // Brak aut
+
+        when(paymentRepository.existsByUserIdAndStatus(userId, PaymentStatus.PENDING)).thenReturn(false);
+        when(carRepository.findWithLockingById(1L)).thenReturn(Optional.of(car));
+
+        // WHEN & THEN
+        assertThrows(EntityInventoryException.class, () -> rentalService.rentCar(userId, request));
+    }
+
+    @Test
+    @DisplayName("Should throw AccessDeniedException when user tries to return someone else's rental")
+    void returnCar_wrongUser_throwsAccessDeniedException() {
+        // GIVEN
+        Long rentalId = 10L;
+        Long ownerId = 1L;
+        Long hackerId = 2L;
+        Rental rental = new Rental();
+        rental.setUserId(ownerId);
+
+        when(rentalRepository.findById(rentalId)).thenReturn(Optional.of(rental));
+
+        // WHEN & THEN
+        assertThrows(AccessDeniedException.class, () -> rentalService.returnCar(hackerId, rentalId));
+    }
+
+    @Test
+    @DisplayName("Should throw RentalAlreadyReturnedException when car is already returned")
+    void returnCar_alreadyReturned_throwsException() {
+        // GIVEN
+        Long userId = 1L;
+        Long rentalId = 10L;
+        Rental rental = new Rental();
+        rental.setUserId(userId);
+        rental.setActualReturnDate(LocalDate.now());
+
+        when(rentalRepository.findById(rentalId)).thenReturn(Optional.of(rental));
+
+        // WHEN & THEN
+        assertThrows(
+                RentalAlreadyReturnedException.class, () -> rentalService.returnCar(userId, rentalId));
+    }
+
+    @Test
+    @DisplayName("Should throw AccessDeniedException when regular user tries to view other user's rental")
+    void getRentalById_unauthorizedUser_throwsAccessDeniedException() {
+        // GIVEN
+        Long rentalId = 10L;
+        Long ownerId = 1L;
+        Long otherUserId = 2L;
+        Rental rental = new Rental();
+        rental.setUserId(ownerId);
+
+        when(rentalRepository.findById(rentalId)).thenReturn(Optional.of(rental));
+
+        // WHEN & THEN
+        // isManager = false
+        assertThrows(AccessDeniedException.class,
+                () -> rentalService.getRentalById(rentalId, otherUserId, false));
+    }
+
+    @Test
+    @DisplayName("Should allow manager to view any rental")
+    void getRentalById_managerViewsAnyRental_returnsDto() {
+        // GIVEN
+        Long rentalId = 10L;
+        Long ownerId = 1L;
+        Long managerId = 99L;
+        Rental rental = new Rental();
+        rental.setUserId(ownerId);
+        RentalDto expected = new RentalDto(10L, ownerId, 1L, LocalDate.now(), LocalDate.now(), null);
+
+        when(rentalRepository.findById(rentalId)).thenReturn(Optional.of(rental));
+        when(rentalMapper.toDto(rental)).thenReturn(expected);
+
+        // WHEN
+        RentalDto actual = rentalService.getRentalById(rentalId, managerId, true);
+
+        // THEN
+        assertThat(actual).isEqualTo(expected);
+    }
+
     @Test
     @DisplayName("Should successfully process a car rental when user has no pending payments and car is available")
     void rentCar_validRequest_returnsRentalDto() {
@@ -66,13 +194,13 @@ public class RentalServiceImplTest {
         Rental rental = createRental();
         RentalDto expected = createRentalDto();
 
-        // WHEN
         when(rentalMapper.toEntity(requestDto)).thenReturn(rental);
         when(paymentRepository.existsByUserIdAndStatus(user.getId(), PaymentStatus.PENDING)).thenReturn(false);
         when(carRepository.findWithLockingById(requestDto.carId())).thenReturn(Optional.of(car));
         when(rentalRepository.save(any(Rental.class))).thenReturn(rental);
         when(rentalMapper.toDto(rental)).thenReturn(expected);
 
+        // WHEN
         RentalDto actual = rentalService.rentCar(user.getId(), requestDto);
 
         // THEN
@@ -88,11 +216,10 @@ public class RentalServiceImplTest {
         CreateRentalRequestDto rentalRequestDto = new CreateRentalRequestDto(
                 invalidCarId, LocalDate.now(), LocalDate.now().plusDays(3));
 
-        // WHEN
         when(paymentRepository.existsByUserIdAndStatus(1L, PaymentStatus.PENDING)).thenReturn(false);
         when(carRepository.findWithLockingById(invalidCarId)).thenReturn(Optional.empty());
 
-        // THEN
+        // WHEN & THEN
         assertThrows(EntityNotFoundException.class, () -> rentalService.rentCar(1L, rentalRequestDto));
     }
 
@@ -103,10 +230,9 @@ public class RentalServiceImplTest {
         Long invalidId = 999L;
         Long userId = 1L;
 
-        // WHEN
         when(rentalRepository.findById(invalidId)).thenReturn(Optional.empty());
 
-        // THEN
+        // WHEN & THEN
         assertThrows(EntityNotFoundException.class, () -> rentalService.returnCar(userId, invalidId));
     }
 
@@ -122,12 +248,12 @@ public class RentalServiceImplTest {
         rental.setActualReturnDate(null);
         RentalDto expected = createRentalDto();
 
-        // WHEN
         when(rentalRepository.findById(rentalId)).thenReturn(Optional.of(rental));
         when(carRepository.findWithLockingById(rental.getCarId())).thenReturn(Optional.of(car));
         when(rentalRepository.save(any(Rental.class))).thenReturn(rental);
         when(rentalMapper.toDto(rental)).thenReturn(expected);
 
+        // WHEN
         RentalDto actual = rentalService.returnCar(userId, rentalId);
 
         // THEN
@@ -148,10 +274,10 @@ public class RentalServiceImplTest {
         Pageable pageable = PageRequest.of(0, 10);
         Page<Rental> rentalPage = new PageImpl<>(List.of(rental), pageable, 1);
 
-        // WHEN
         when(rentalRepository.findAll(any(Specification.class), eq(pageable))).thenReturn(rentalPage);
         when(rentalMapper.toDto(rental)).thenReturn(expected);
 
+        // WHEN
         List<RentalDto> actual = rentalService.getRentalsByUserIdAndStatus(userId, true, pageable).getContent();
 
         // THEN
@@ -166,11 +292,10 @@ public class RentalServiceImplTest {
         Long invalidId = 999L;
         Pageable pageable = PageRequest.of(0, 10);
 
-        // WHEN
         when(rentalRepository.findAll(any(Specification.class), eq(pageable))).thenThrow(
                 new EntityNotFoundException("No rentals found for user id " + invalidId));
 
-        // THEN
+        // WHEN & THEN
         assertThrows(EntityNotFoundException.class,
                 () -> rentalService.getRentalsByUserIdAndStatus(invalidId, true, pageable));
     }
@@ -185,10 +310,10 @@ public class RentalServiceImplTest {
         Rental rental = createRental();
         RentalDto expected = createRentalDto();
 
-        // WHEN
         when(rentalRepository.findById(rentalId)).thenReturn(Optional.of(rental));
         when(rentalMapper.toDto(rental)).thenReturn(expected);
 
+        // WHEN
         RentalDto actual = rentalService.getRentalById(rentalId, currentUserId, isManager);
 
         // THEN
@@ -203,10 +328,9 @@ public class RentalServiceImplTest {
        Long currentUserId = 1L;
        boolean isManager = true;
 
-       // WHEN
        when(rentalRepository.findById(invalidId)).thenReturn(Optional.empty());
 
-       // THEN
+       // WHEN & THEN
        assertThrows(EntityNotFoundException.class,
                () -> rentalService.getRentalById(invalidId, currentUserId, isManager));
     }

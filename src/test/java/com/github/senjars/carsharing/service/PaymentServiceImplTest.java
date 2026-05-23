@@ -3,6 +3,9 @@ package com.github.senjars.carsharing.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -10,6 +13,7 @@ import com.github.senjars.carsharing.dto.payment.PaymentResponseDto;
 import com.github.senjars.carsharing.exception.AccessDeniedException;
 import com.github.senjars.carsharing.exception.EntityNotFoundException;
 import com.github.senjars.carsharing.exception.PaymentAlreadyProcessedException;
+import com.github.senjars.carsharing.exception.PaymentException;
 import com.github.senjars.carsharing.mapper.PaymentMapper;
 import com.github.senjars.carsharing.model.car.Car;
 import com.github.senjars.carsharing.model.car.CarType;
@@ -18,6 +22,8 @@ import com.github.senjars.carsharing.model.payment.Payment;
 import com.github.senjars.carsharing.model.payment.PaymentStatus;
 import com.github.senjars.carsharing.model.payment.PaymentType;
 import com.github.senjars.carsharing.model.rental.Rental;
+import com.github.senjars.carsharing.model.user.Role;
+import com.github.senjars.carsharing.model.user.RoleName;
 import com.github.senjars.carsharing.model.user.User;
 import com.github.senjars.carsharing.notify.TelegramService;
 import com.github.senjars.carsharing.repository.CarRepository;
@@ -82,7 +88,6 @@ public class PaymentServiceImplTest {
         Payment payment = createPayment();
         PaymentResponseDto expectedResponse = createPaymentResponseDto();
 
-        // WHEN
         when(rentalRepository.findById(rentalId)).thenReturn(Optional.of(rental));
         when(paymentRepository.findByRentalId(rentalId)).thenReturn(Optional.empty());
         when(carRepository.findById(car.getId())).thenReturn(Optional.of(car));
@@ -90,11 +95,76 @@ public class PaymentServiceImplTest {
         when(paymentRepository.save(any(Payment.class))).thenReturn(payment);
         when(paymentMapper.toDto(payment)).thenReturn(expectedResponse);
 
+        // WHEN
         PaymentResponseDto result = paymentService.createPayment(userId, rentalId);
 
         // THEN
         assertThat(result).isEqualTo(expectedResponse);
         verify(paymentRepository).save(any(Payment.class));
+    }
+
+    @Test
+    @DisplayName("Should create a fine payment when rental is returned after expected return date")
+    void createPayment_lateReturn_createsFinePaymentWithFineAmount() throws StripeException {
+        // GIVEN
+        Long userId = 1L;
+        Long rentalId = 1L;
+        Rental rental = createRental();
+        rental.setActualReturnDate(rental.getReturnDate().plusDays(2));
+        Car car = createCar();
+        Session session = createSession();
+        Payment savedPayment = createPayment();
+        savedPayment.setType(PaymentType.FINE);
+        savedPayment.setAmountToPay(BigDecimal.valueOf(600.0));
+        PaymentResponseDto expectedResponse = createPaymentResponseDto();
+
+        when(rentalRepository.findById(rentalId)).thenReturn(Optional.of(rental));
+        when(paymentRepository.findByRentalId(rentalId)).thenReturn(Optional.empty());
+        when(carRepository.findById(car.getId())).thenReturn(Optional.of(car));
+        when(stripeProvider.createSession(any(BigDecimal.class), any(String.class))).thenReturn(session);
+        when(paymentRepository.save(any(Payment.class))).thenReturn(savedPayment);
+        when(paymentMapper.toDto(savedPayment)).thenReturn(expectedResponse);
+
+        // WHEN
+        PaymentResponseDto result = paymentService.createPayment(userId, rentalId);
+
+        // THEN
+        assertThat(result).isEqualTo(expectedResponse);
+        verify(paymentRepository).save(argThat(payment ->
+                payment.getType() == PaymentType.FINE
+                        && payment.getAmountToPay().compareTo(BigDecimal.valueOf(600.0)) == 0));
+    }
+
+    @Test
+    @DisplayName("Should renew expired payment when creating payment for rental with expired payment")
+    void createPayment_expiredPayment_renewsExistingPayment() throws StripeException {
+        // GIVEN
+        Long userId = 1L;
+        Long rentalId = 1L;
+        Rental rental = createRental();
+        Payment expiredPayment = createPayment();
+        expiredPayment.setStatus(PaymentStatus.EXPIRED);
+        expiredPayment.setSessionId("old_session_id");
+        expiredPayment.setSessionUrl("https://test.stripe.com/pay/old_session_id");
+        Session session = createSession();
+        PaymentResponseDto expectedResponse = createPaymentResponseDto();
+
+        when(rentalRepository.findById(rentalId)).thenReturn(Optional.of(rental));
+        when(paymentRepository.findByRentalId(rentalId)).thenReturn(Optional.of(expiredPayment));
+        when(stripeProvider.createSession(expiredPayment.getAmountToPay(),
+                "Renewal for rental: " + rentalId)).thenReturn(session);
+        when(paymentRepository.save(expiredPayment)).thenReturn(expiredPayment);
+        when(paymentMapper.toDto(expiredPayment)).thenReturn(expectedResponse);
+
+        // WHEN
+        PaymentResponseDto result = paymentService.createPayment(userId, rentalId);
+
+        // THEN
+        assertThat(result).isEqualTo(expectedResponse);
+        assertThat(expiredPayment.getStatus()).isEqualTo(PaymentStatus.PENDING);
+        assertThat(expiredPayment.getSessionId()).isEqualTo(session.getId());
+        assertThat(expiredPayment.getSessionUrl()).isEqualTo(session.getUrl());
+        verify(paymentRepository).save(expiredPayment);
     }
 
     @Test
@@ -104,12 +174,29 @@ public class PaymentServiceImplTest {
         Long userId = 1L;
         Long invalidRentalId = 999L;
 
-        // WHEN
         when(rentalRepository.findById(invalidRentalId)).thenReturn(Optional.empty());
 
-        // THEN
+        // WHEN & THEN
         assertThrows(EntityNotFoundException.class,
                 () -> paymentService.createPayment(userId, invalidRentalId));
+    }
+
+    @Test
+    @DisplayName("Should throw EntityNotFoundException when car for rental cannot be found")
+    void createPayment_missingCar_throwsEntityNotFoundException() {
+        // GIVEN
+        Long userId = 1L;
+        Long rentalId = 1L;
+        Rental rental = createRental();
+
+        when(rentalRepository.findById(rentalId)).thenReturn(Optional.of(rental));
+        when(paymentRepository.findByRentalId(rentalId)).thenReturn(Optional.empty());
+        when(carRepository.findById(rental.getCarId())).thenReturn(Optional.empty());
+
+        // WHEN & THEN
+        assertThrows(EntityNotFoundException.class,
+                () -> paymentService.createPayment(userId, rentalId));
+        verify(paymentRepository, never()).save(any(Payment.class));
     }
 
     @Test
@@ -121,10 +208,9 @@ public class PaymentServiceImplTest {
         Rental rental = createRental();
         rental.setUserId(2L);
 
-        // WHEN
         when(rentalRepository.findById(rentalId)).thenReturn(Optional.of(rental));
 
-        // THEN
+        // WHEN & THEN
         assertThrows(AccessDeniedException.class,
                 () -> paymentService.createPayment(userId, rentalId));
     }
@@ -139,11 +225,10 @@ public class PaymentServiceImplTest {
         Payment payment = createPayment();
         payment.setStatus(PaymentStatus.PAID);
 
-        // WHEN
         when(rentalRepository.findById(rentalId)).thenReturn(Optional.of(rental));
         when(paymentRepository.findByRentalId(rentalId)).thenReturn(Optional.of(payment));
 
-        // THEN
+        // WHEN & THEN
         assertThrows(PaymentAlreadyProcessedException.class,
                 () -> paymentService.createPayment(userId, rentalId));
     }
@@ -159,11 +244,11 @@ public class PaymentServiceImplTest {
         payment.setStatus(PaymentStatus.PENDING);
         PaymentResponseDto expectedResponse = createPaymentResponseDto();
 
-        // WHEN
         when(rentalRepository.findById(rentalId)).thenReturn(Optional.of(rental));
         when(paymentRepository.findByRentalId(rentalId)).thenReturn(Optional.of(payment));
         when(paymentMapper.toDto(payment)).thenReturn(expectedResponse);
 
+        // WHEN
         PaymentResponseDto result = paymentService.createPayment(userId, rentalId);
 
         // THEN
@@ -183,15 +268,52 @@ public class PaymentServiceImplTest {
         Page<PaymentResponseDto> expectedPage = new PageImpl<>(
                 java.util.List.of(expectedDto), pageable, 1);
 
-        // WHEN
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(paymentRepository.findPaymentsByUserId(userId, pageable)).thenReturn(paymentPage);
         when(paymentMapper.toDto(payment)).thenReturn(expectedDto);
 
+        // WHEN
         Page<PaymentResponseDto> result = paymentService.getPaymentsByUserId(user, userId, pageable);
 
         // THEN
         assertThat(result.getContent()).containsExactly(expectedDto);
+    }
+
+    @Test
+    @DisplayName("Should return payments when manager accesses another user's payment history")
+    void getPaymentsByUserId_managerViewsOtherUser_returnsPayments() {
+        // GIVEN
+        Long userId = 1L;
+        User manager = createManager();
+        Pageable pageable = PageRequest.of(0, 10);
+        Payment payment = createPayment();
+        Page<Payment> paymentPage = new PageImpl<>(java.util.List.of(payment), pageable, 1);
+        PaymentResponseDto expectedDto = createPaymentResponseDto();
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(createUser()));
+        when(paymentRepository.findPaymentsByUserId(userId, pageable)).thenReturn(paymentPage);
+        when(paymentMapper.toDto(payment)).thenReturn(expectedDto);
+
+        // WHEN
+        Page<PaymentResponseDto> result = paymentService.getPaymentsByUserId(manager, userId, pageable);
+
+        // THEN
+        assertThat(result.getContent()).containsExactly(expectedDto);
+    }
+
+    @Test
+    @DisplayName("Should throw EntityNotFoundException when requested payment owner does not exist")
+    void getPaymentsByUserId_missingUser_throwsEntityNotFoundException() {
+        // GIVEN
+        Long userId = 999L;
+        User currentUser = createUser();
+        Pageable pageable = PageRequest.of(0, 10);
+
+        when(userRepository.findById(userId)).thenReturn(Optional.empty());
+
+        // WHEN & THEN
+        assertThrows(EntityNotFoundException.class,
+                () -> paymentService.getPaymentsByUserId(currentUser, userId, pageable));
     }
 
     @Test
@@ -203,10 +325,9 @@ public class PaymentServiceImplTest {
         currentUser.setId(2L);
         Pageable pageable = PageRequest.of(0, 10);
 
-        // WHEN
         when(userRepository.findById(userId)).thenReturn(Optional.of(createUser()));
 
-        // THEN
+        // WHEN & THEN
         assertThrows(AccessDeniedException.class,
                 () -> paymentService.getPaymentsByUserId(currentUser, userId, pageable));
     }
@@ -221,12 +342,91 @@ public class PaymentServiceImplTest {
         Session session = createSession();
         PaymentResponseDto expectedDto = createPaymentResponseDto();
 
-        // WHEN
         when(paymentRepository.findPaymentBySessionId(sessionId)).thenReturn(Optional.of(payment));
         when(stripeProvider.getSession(sessionId)).thenReturn(session);
         when(paymentRepository.save(any(Payment.class))).thenReturn(payment);
         when(paymentMapper.toDto(payment)).thenReturn(expectedDto);
 
+        // WHEN
+        PaymentResponseDto result = paymentService.fulfillPayment(sessionId);
+
+        // THEN
+        assertThat(result).isEqualTo(expectedDto);
+        assertThat(payment.getStatus()).isEqualTo(PaymentStatus.PAID);
+    }
+
+    @Test
+    @DisplayName("Should return existing dto when fulfilling already paid payment")
+    void fulfillPayment_alreadyPaid_returnsDtoWithoutStripeLookup() {
+        // GIVEN
+        String sessionId = "test_session_id";
+        Payment payment = createPayment();
+        payment.setStatus(PaymentStatus.PAID);
+        PaymentResponseDto expectedDto = createPaymentResponseDto();
+
+        when(paymentRepository.findPaymentBySessionId(sessionId)).thenReturn(Optional.of(payment));
+        when(paymentMapper.toDto(payment)).thenReturn(expectedDto);
+
+        // WHEN
+        PaymentResponseDto result = paymentService.fulfillPayment(sessionId);
+
+        // THEN
+        assertThat(result).isEqualTo(expectedDto);
+        verify(stripeProvider, never()).getSession(sessionId);
+        verify(paymentRepository, never()).save(any(Payment.class));
+    }
+
+    @Test
+    @DisplayName("Should throw EntityNotFoundException when Stripe session cannot be found")
+    void fulfillPayment_nullStripeSession_throwsEntityNotFoundException() {
+        // GIVEN
+        String sessionId = "test_session_id";
+        Payment payment = createPayment();
+
+        when(paymentRepository.findPaymentBySessionId(sessionId)).thenReturn(Optional.of(payment));
+        when(stripeProvider.getSession(sessionId)).thenReturn(null);
+
+        // WHEN & THEN
+        assertThrows(EntityNotFoundException.class,
+                () -> paymentService.fulfillPayment(sessionId));
+        verify(paymentRepository, never()).save(any(Payment.class));
+    }
+
+    @Test
+    @DisplayName("Should throw PaymentAlreadyProcessedException when Stripe session is not paid")
+    void fulfillPayment_unpaidStripeSession_throwsPaymentAlreadyProcessedException() {
+        // GIVEN
+        String sessionId = "test_session_id";
+        Payment payment = createPayment();
+        Session session = createSession();
+        session.setPaymentStatus("unpaid");
+
+        when(paymentRepository.findPaymentBySessionId(sessionId)).thenReturn(Optional.of(payment));
+        when(stripeProvider.getSession(sessionId)).thenReturn(session);
+
+        // WHEN & THEN
+        assertThrows(PaymentAlreadyProcessedException.class,
+                () -> paymentService.fulfillPayment(sessionId));
+        verify(paymentRepository, never()).save(any(Payment.class));
+    }
+
+    @Test
+    @DisplayName("Should return payment dto when Telegram notification fails after successful fulfillment")
+    void fulfillPayment_telegramFailure_returnsPaymentDto() {
+        // GIVEN
+        String sessionId = "test_session_id";
+        Payment payment = createPayment();
+        Session session = createSession();
+        PaymentResponseDto expectedDto = createPaymentResponseDto();
+
+        when(paymentRepository.findPaymentBySessionId(sessionId)).thenReturn(Optional.of(payment));
+        when(stripeProvider.getSession(sessionId)).thenReturn(session);
+        when(paymentRepository.save(payment)).thenReturn(payment);
+        when(paymentMapper.toDto(payment)).thenReturn(expectedDto);
+        doThrow(new RuntimeException("Telegram is unavailable"))
+                .when(telegramService).sendMessage(any(String.class));
+
+        // WHEN
         PaymentResponseDto result = paymentService.fulfillPayment(sessionId);
 
         // THEN
@@ -240,12 +440,43 @@ public class PaymentServiceImplTest {
         // GIVEN
         String invalidSessionId = "invalid_id";
 
-        // WHEN
         when(paymentRepository.findPaymentBySessionId(invalidSessionId)).thenReturn(Optional.empty());
 
-        // THEN
+        // WHEN & THEN
         assertThrows(EntityNotFoundException.class,
                 () -> paymentService.fulfillPayment(invalidSessionId));
+    }
+
+    @Test
+    @DisplayName("Should throw EntityNotFoundException when renewing missing payment")
+    void renewExistingPayment_missingPayment_throwsEntityNotFoundException() {
+        // GIVEN
+        Long userId = 1L;
+        Long rentalId = 1L;
+        Rental rental = createRental();
+
+        when(rentalRepository.findById(rentalId)).thenReturn(Optional.of(rental));
+        when(paymentRepository.findByRentalId(rentalId)).thenReturn(Optional.empty());
+
+        // WHEN & THEN
+        assertThrows(EntityNotFoundException.class,
+                () -> paymentService.renewExistingPayment(userId, rentalId));
+    }
+
+    @Test
+    @DisplayName("Should wrap StripeException when processing webhook fails")
+    void processWebhook_stripeException_throwsPaymentException() throws StripeException {
+        // GIVEN
+        String payload = "{}";
+        String sigHeader = "invalid_signature";
+
+        when(stripeProvider.getWebhookEvent(payload, sigHeader))
+                .thenThrow(new com.stripe.exception.SignatureVerificationException(
+                        "Invalid signature", sigHeader));
+
+        // WHEN & THEN
+        assertThrows(PaymentException.class,
+                () -> paymentService.processWebhook(payload, sigHeader));
     }
 
     @Test
@@ -288,6 +519,15 @@ public class PaymentServiceImplTest {
         user.setFirstName("John");
         user.setLastName("Doe");
         return user;
+    }
+
+    private User createManager() {
+        User manager = createUser();
+        manager.setId(2L);
+        Role role = new Role();
+        role.setName(RoleName.MANAGER);
+        manager.getRoles().add(role);
+        return manager;
     }
 
     private Payment createPayment() {

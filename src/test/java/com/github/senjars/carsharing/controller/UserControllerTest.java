@@ -70,11 +70,10 @@ public class UserControllerTest {
         UserDto expectedUserDto = new UserDto(
                 1L, "test@test.com", "John", "Doe", Set.of(RoleName.MANAGER));
 
-        // WHEN
         when(userService.updateRole(anyLong(), any(UpdateUserRoleDto.class)))
                 .thenReturn(expectedUserDto);
 
-        // THEN
+        // WHEN & THEN
         mockMvc.perform(put("/api/users/{userId}/role", 1L)
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
@@ -89,7 +88,7 @@ public class UserControllerTest {
         // GIVEN
         UpdateUserRoleDto updateUserRoleDto = new UpdateUserRoleDto(Set.of(RoleName.MANAGER));
 
-        // THEN
+        // WHEN & THEN
         mockMvc.perform(put("/api/users/{userId}/role", 1L)
                 .with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)
@@ -104,7 +103,7 @@ public class UserControllerTest {
         // GIVEN
         UpdateUserRoleDto updateUserRoleDto = new UpdateUserRoleDto(Set.of(RoleName.MANAGER));
 
-        // THEN
+        // WHEN & THEN
         mockMvc.perform(put("/api/users/{userId}/role", 1L)
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
@@ -125,11 +124,10 @@ public class UserControllerTest {
                 "James", "Doe",
                 Set.of(RoleName.CUSTOMER));
 
-        // WHEN
         when(userService.updateUserInfo(anyLong(), any(UpdateUserInfoDto.class)))
                 .thenReturn(expectedDto);
 
-        // THEN
+        // WHEN & THEN
         mockMvc.perform(patch("/api/users/me")
                         .with(csrf())
                         .with(user(mockUser))
@@ -147,11 +145,10 @@ public class UserControllerTest {
         UpdateUserInfoDto updateUserInfoDto =
                 new UpdateUserInfoDto("James", "Smith", "test@test.com");
 
-        // WHEN
         when(userService.updateUserInfo(anyLong(), any(UpdateUserInfoDto.class)))
                 .thenThrow(new EntityNotFoundException("User not found"));
 
-        // THEN
+        // WHEN & THEN
         mockMvc.perform(patch("/api/users/me")
                         .with(csrf())
                         .with(user(mockUser))
@@ -170,10 +167,9 @@ public class UserControllerTest {
                 "John", "Doe",
                 Set.of(RoleName.CUSTOMER));
 
-        // WHEN
         when(userService.getUserInfo(user.getId())).thenReturn(userDto);
 
-        // THEN
+        // WHEN & THEN
         mockMvc.perform(get("/api/users/me")
                         .with(user(user))
                         .contentType(MediaType.APPLICATION_JSON))
@@ -185,7 +181,7 @@ public class UserControllerTest {
     @Test
     @DisplayName("Should return 403 Forbidden when unauthenticated user tries to access profile info")
     void getUserInfo_unauthenticatedUser_throwsForbidden() throws Exception {
-        // THEN
+        // WHEN & THEN
         mockMvc.perform(get("/api/users/me"))
                 .andExpect(status().isForbidden());
     }

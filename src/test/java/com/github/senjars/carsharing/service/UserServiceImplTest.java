@@ -41,9 +41,9 @@ public class UserServiceImplTest {
         User user = createUser();
         UpdateUserRoleDto updateUserRoleDto = new UpdateUserRoleDto(Set.of(RoleName.MANAGER));
 
-        // WHEN
         when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
 
+        // WHEN
         userService.updateRole(user.getId(), updateUserRoleDto);
 
         // THEN
@@ -57,10 +57,10 @@ public class UserServiceImplTest {
         User user = createUser();
         UserDto expectedDto = createUserDto();
 
-        // WHEN
         when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
         when(userMapper.toDto(user)).thenReturn(expectedDto);
 
+        // WHEN
         UserDto actualDto = userService.getUserInfo(user.getId());
 
         // THEN
@@ -73,10 +73,9 @@ public class UserServiceImplTest {
         // GIVEN
         Long invalidId = 999L;
 
-        // WHEN
         when(userRepository.findById(invalidId)).thenReturn(Optional.empty());
 
-        // THEN
+        // WHEN & THEN
         Assertions.assertThrows(EntityNotFoundException.class,
                 () -> userService.getUserInfo(invalidId));
     }
@@ -89,11 +88,11 @@ public class UserServiceImplTest {
         UpdateUserInfoDto updateUserInfoDto = createUpdateUserInfoDto();
         UserDto expectedDto = createUserDto();
 
-        // WHEN
         when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
         when(userRepository.save(user)).thenReturn(user);
         when(userMapper.toDto(user)).thenReturn(expectedDto);
 
+        // WHEN
         UserDto actualDto = userService.updateUserInfo(user.getId(), updateUserInfoDto);
 
         // THEN
@@ -109,10 +108,9 @@ public class UserServiceImplTest {
         // GIVEN
         Long invalidId = 999L;
 
-        // WHEN
         when(userRepository.findById(invalidId)).thenReturn(Optional.empty());
 
-        // THEN
+        // WHEN & THEN
         Assertions.assertThrows(EntityNotFoundException.class,
                 () -> userService.updateUserInfo(invalidId, null));
     }

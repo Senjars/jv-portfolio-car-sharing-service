@@ -74,11 +74,10 @@ public class PaymentControllerTest {
         CreatePaymentRequestDto requestDto = new CreatePaymentRequestDto(1L, PaymentType.PAYMENT);
         PaymentResponseDto responseDto = createPaymentResponseDto();
 
-        // WHEN
         when(paymentService.createPayment(anyLong(), eq(requestDto.rentalId())))
                 .thenReturn(responseDto);
 
-        // THEN
+        // WHEN & THEN
         mockMvc.perform(post("/api/payments")
                         .with(csrf())
                         .with(user(mockUser))
@@ -99,7 +98,7 @@ public class PaymentControllerTest {
         // GIVEN
         CreatePaymentRequestDto requestDto = new CreatePaymentRequestDto(null, null);
 
-        // THEN
+        // WHEN & THEN
         mockMvc.perform(post("/api/payments")
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
@@ -115,11 +114,10 @@ public class PaymentControllerTest {
         User mockUser = createUser();
         CreatePaymentRequestDto requestDto = new CreatePaymentRequestDto(invalidId, PaymentType.PAYMENT);
 
-        // WHEN
         when(paymentService.createPayment(anyLong(), anyLong()))
                 .thenThrow(new EntityNotFoundException("Rental not found"));
 
-        // THEN
+        // WHEN & THEN
         mockMvc.perform(post("/api/payments")
                         .with(csrf())
                         .with(user(mockUser))
@@ -135,11 +133,10 @@ public class PaymentControllerTest {
         User mockUser = createUser();
         PaymentResponseDto responseDto = createPaymentResponseDto();
 
-        // WHEN
         when(paymentService.renewExistingPayment(anyLong(), eq(1L)))
                 .thenReturn(responseDto);
 
-        // THEN
+        // WHEN & THEN
         mockMvc.perform(post("/api/payments/renew")
                         .with(csrf())
                         .with(user(mockUser))
@@ -154,7 +151,7 @@ public class PaymentControllerTest {
     @DisplayName("Should return 400 Bad Request when renewal rentalId parameter is malformed")
     @WithMockUser(username = "testUser", roles = "CUSTOMER")
     void renewPayment_invalidRequest_returnsBadRequest() throws Exception {
-        // THEN
+        // WHEN & THEN
         mockMvc.perform(post("/api/payments/renew")
                         .with(csrf())
                         .param("rentalId", "invalid"))
@@ -170,11 +167,10 @@ public class PaymentControllerTest {
         PaymentResponseDto responseDto = createPaymentResponseDto();
         Page<PaymentResponseDto> paymentPage = new PageImpl<>(List.of(responseDto), pageable, 1);
 
-        // WHEN
         when(paymentService.getPaymentsByUserId(any(), any(), any(Pageable.class)))
                 .thenReturn(paymentPage);
 
-        // THEN
+        // WHEN & THEN
         mockMvc.perform(get("/api/payments")
                         .with(user(mockUser))
                         .param("page", "0")
@@ -186,7 +182,7 @@ public class PaymentControllerTest {
     @Test
     @DisplayName("Should return 403 Forbidden when unauthenticated user tries to access payment history")
     void getPayments_unauthenticatedUser_returnsForbidden() throws Exception {
-        // THEN
+        // WHEN & THEN
         mockMvc.perform(get("/api/payments")
                         .param("page", "0")
                         .param("size", "10"))
@@ -199,11 +195,10 @@ public class PaymentControllerTest {
         // GIVEN
         PaymentResponseDto responseDto = createPaymentResponseDto();
 
-        // WHEN
         when(paymentService.fulfillPayment("cs_test_session"))
                 .thenReturn(responseDto);
 
-        // THEN
+        // WHEN & THEN
         mockMvc.perform(get("/api/payments/success")
                         .param("sessionId", "cs_test_session"))
                 .andExpect(status().isOk())
@@ -213,11 +208,11 @@ public class PaymentControllerTest {
     @Test
     @DisplayName("Should return 200 OK with cancellation message when payment is cancelled by user")
     void handleCancel_validRequest_returnsOk() throws Exception {
-        // WHEN
+        // GIVEN
         when(paymentService.handleCancel())
                 .thenReturn("Payment cancelled");
 
-        // THEN
+        // WHEN & THEN
         mockMvc.perform(get("/api/payments/cancel"))
                 .andExpect(status().isOk());
     }
