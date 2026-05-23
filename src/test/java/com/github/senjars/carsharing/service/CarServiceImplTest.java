@@ -53,12 +53,12 @@ class CarServiceImplTest {
         Car savedCar = new Car();
         CarDto expectedDto = new CarDto(1L, TypeName.SEDAN, "Model", "Brand", 1, BigDecimal.valueOf(100));
 
-        // WHEN
         when(carMapper.toEntity(createCarDto)).thenReturn(car);
         when(carTypeRepository.findByTypeName(TypeName.SEDAN)).thenReturn(Optional.of(carType));
         when(carRepository.save(car)).thenReturn(savedCar);
         when(carMapper.toDto(savedCar)).thenReturn(expectedDto);
 
+        // WHEN
         CarDto result = carService.addCar(createCarDto);
 
         // THEN
@@ -72,11 +72,10 @@ class CarServiceImplTest {
         // GIVEN
         CreateCarDto createCarDto = createNewCreateCarDto();
 
-        // WHEN
         when(carMapper.toEntity(createCarDto)).thenReturn(new Car());
         when(carTypeRepository.findByTypeName(TypeName.SEDAN)).thenReturn(Optional.empty());
 
-        // THEN
+        // WHEN & THEN
         assertThatThrownBy(() -> carService.addCar(createCarDto))
                 .isInstanceOf(EntityNotFoundException.class)
                 .hasMessageContaining("Car type SEDAN not found");
@@ -91,9 +90,9 @@ class CarServiceImplTest {
         Long carId = 1L;
         Car car = new Car();
 
-        // WHEN
         when(carRepository.findById(carId)).thenReturn(Optional.of(car));
 
+        // WHEN
         carService.removeCar(carId);
 
         // THEN
@@ -106,10 +105,9 @@ class CarServiceImplTest {
         // GIVEN
         Long invalidCarId = 999L;
 
-        // WHEN
         when(carRepository.findById(invalidCarId)).thenReturn(Optional.empty());
 
-        // THEN
+        // WHEN & THEN
         Assertions.assertThrows(EntityNotFoundException.class,
                 () -> carService.removeCar(invalidCarId));
 
@@ -124,11 +122,11 @@ class CarServiceImplTest {
         UpdateCarDto updateCarDto = new UpdateCarDto(TypeName.SEDAN, "New Model", "New Brand", 2, BigDecimal.valueOf(200));
         CarDto expectedCarDto = createNewCarDto();
 
-        // WHEN
         when(carRepository.findById(car.getId())).thenReturn(Optional.of(car));
         when(carMapper.toDto(car)).thenReturn(expectedCarDto);
         when(carRepository.save(car)).thenReturn(car);
 
+        // WHEN
         CarDto actualUpdatedCarDto = carService.updateCar(car.getId(), updateCarDto);
 
         // THEN
@@ -143,10 +141,9 @@ class CarServiceImplTest {
         Long invalidCarId = 999L;
         UpdateCarDto updateCarDto = new UpdateCarDto(TypeName.SEDAN, "New Model", "New Brand", 2, BigDecimal.valueOf(200));
 
-        // WHEN
         when(carRepository.findById(invalidCarId)).thenReturn(Optional.empty());
 
-        // THEN
+        // WHEN & THEN
         Assertions.assertThrows(EntityNotFoundException.class,
                 () -> carService.updateCar(invalidCarId, updateCarDto));
     }
@@ -158,10 +155,10 @@ class CarServiceImplTest {
         Car car = createCar();
         CarDto expectedCarDto = createNewCarDto();
 
-        // WHEN
         when(carRepository.findById(car.getId())).thenReturn(Optional.of(car));
         when(carMapper.toDto(car)).thenReturn(expectedCarDto);
 
+        // WHEN
         CarDto carDto = carService.getCarInfo(car.getId());
 
         // THEN
@@ -174,10 +171,9 @@ class CarServiceImplTest {
         // GIVEN
         Long invalidCarId = 999L;
 
-        // WHEN
         when(carRepository.findById(invalidCarId)).thenReturn(Optional.empty());
 
-        // THEN
+        // WHEN & THEN
         Assertions.assertThrows(EntityNotFoundException.class,
                 () -> carService.getCarInfo(invalidCarId));
     }

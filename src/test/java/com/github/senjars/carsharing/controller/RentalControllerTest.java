@@ -75,11 +75,10 @@ public class RentalControllerTest {
                 1L, LocalDate.now(), LocalDate.now().plusDays(3));
         RentalDto expectedDto = createRentalDto();
 
-        // WHEN
         when(rentalService.rentCar(anyLong(), any(CreateRentalRequestDto.class)))
                 .thenReturn(expectedDto);
 
-        // THEN
+        // WHEN & THEN
         mockMvc.perform(post("/api/rentals")
                         .with(csrf())
                         .with(user(mockUser))
@@ -97,7 +96,7 @@ public class RentalControllerTest {
         CreateRentalRequestDto requestDto = new CreateRentalRequestDto(
                 1L, LocalDate.now(), LocalDate.now().plusDays(3));
 
-        // THEN
+        // WHEN & THEN
         mockMvc.perform(post("/api/rentals")
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
@@ -113,10 +112,9 @@ public class RentalControllerTest {
         Long rentalId = 1L;
         RentalDto expectedDto = createRentalDto();
 
-        // WHEN
         when(rentalService.returnCar(anyLong(), eq(rentalId))).thenReturn(expectedDto);
 
-        // THEN
+        // WHEN & THEN
         mockMvc.perform(post("/api/rentals/return")
                         .with(csrf())
                         .with(user(mockUser))
@@ -131,7 +129,7 @@ public class RentalControllerTest {
         // GIVEN
         Long rentalId = 1L;
 
-        // THEN
+        // WHEN & THEN
         mockMvc.perform(post("/api/rentals/return")
                         .with(csrf())
                         .param("rentalId", rentalId.toString()))
@@ -147,11 +145,10 @@ public class RentalControllerTest {
         RentalDto rentalDto = createRentalDto();
         Page<RentalDto> rentalPage = new PageImpl<>(List.of(rentalDto), pageable, 1);
 
-        // WHEN
         when(rentalService.getRentalsByUserIdAndStatus(anyLong(), anyBoolean(), any(Pageable.class)))
                 .thenReturn(rentalPage);
 
-        // THEN
+        // WHEN & THEN
         mockMvc.perform(get("/api/rentals")
                         .param("isActive", "true")
                         .with(user(mockUser)))
@@ -167,11 +164,10 @@ public class RentalControllerTest {
         User mockUser = createMockUserWithId();
         RentalDto expectedDto = createRentalDto();
 
-        // WHEN
         when(rentalService.getRentalById(eq(rentalId), anyLong(), anyBoolean()))
                 .thenReturn(expectedDto);
 
-        // THEN
+        // WHEN & THEN
         mockMvc.perform(get("/api/rentals/{rentalId}", rentalId)
                         .with(user(mockUser)))
                 .andExpect(status().isOk())
@@ -185,7 +181,7 @@ public class RentalControllerTest {
         // GIVEN
         Long rentalId = 1L;
 
-        // THEN
+        // WHEN & THEN
         mockMvc.perform(get("/api/rentals/{rentalId}", rentalId))
                 .andExpect(status().isForbidden());
     }
@@ -208,7 +204,7 @@ public class RentalControllerTest {
         // GIVEN
         User mockUser = createMockUserWithId();
 
-        // THEN
+        // WHEN & THEN
         mockMvc.perform(post("/api/rentals/trigger-overdue-check")
                         .with(csrf())
                         .with(user(mockUser)))

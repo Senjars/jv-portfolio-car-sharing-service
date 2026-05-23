@@ -108,7 +108,7 @@ public class RentalControllerIT {
                 LocalDate.now().plusDays(3)
         );
 
-        // When & Then
+        // WHEN & THEN
         mockMvc.perform(post("/api/rentals")
                         .with(csrf())
                         .with(SecurityMockMvcRequestPostProcessors.user(user))
