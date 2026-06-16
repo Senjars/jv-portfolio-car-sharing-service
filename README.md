@@ -148,9 +148,9 @@ Full documentation available at `http://localhost:8080/swagger-ui/index.html` af
 
 The application is deployed on AWS using a standard two-tier setup:
 
-- **EC2** — the Spring Boot app runs on an EC2 instance inside Docker. The instance is configured with the appropriate security groups to expose port 8080 publicly and allow outbound connections to RDS.
+- **EC2** - the Spring Boot app runs on an EC2 instance inside Docker. The instance is configured with the appropriate security groups to expose port 8080 publicly and allow outbound connections to RDS.
 - **RDS (MySQL)** - the database runs on a managed AWS RDS instance. The app connects to it via the standard JDBC URL - Liquibase runs migrations on startup automatically, so there's no manual schema setup needed.
-  The Stripe webhook endpoint (`/api/payments/webhook`) is publicly reachable, which is required for Stripe to deliver payment events. The `APP_URL` environment variable points to the EC2 public address so Stripe redirect URLs resolve correctly after checkout.
+  The Stripe webhook endpoint (`/api/payments/webhook`) is publicly reachable, which is required for Stripe to deliver payment events. The `APP_URL` environment variable points to the EC2 public address, so Stripe redirect URLs resolve correctly after checkout.
 
 > ️️️☁️ **[Explore Live API (Swagger UI)](http://3.68.72.235:8080/swagger-ui/index.html#/)** (If you want to run it locally instead, just follow the Docker Compose setup below.)
 
@@ -162,7 +162,7 @@ The application is deployed on AWS using a standard two-tier setup:
 
 - Java 21
 - Docker & Docker Compose
-- A Stripe account (test mode is fine) with a webhook set up
+- A Stripe account (test mode is fine) with a webhook setup
 - A Telegram bot token and chat ID
 ### 1. Clone the repo
 
@@ -224,7 +224,7 @@ stripe listen --forward-to localhost:8080/api/payments/webhook
 
 Use Stripe's test card `4242 4242 4242 4242` with any future expiry and any CVC.
 
-The project uses Testcontainers to spin up a real MySQL instance during integration tests — no mocking the database, no H2 workarounds for MySQL-specific behavior.
+The project uses Testcontainers to spin up a real MySQL instance during integration tests - no mocking the database, no H2 workarounds for MySQL-specific behavior.
 
 ```bash
 # Run all tests with coverage report
