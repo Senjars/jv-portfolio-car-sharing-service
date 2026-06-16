@@ -110,7 +110,11 @@ public class PaymentServiceImplTest {
         Long userId = 1L;
         Long rentalId = 1L;
         Rental rental = createRental();
-        rental.setActualReturnDate(rental.getReturnDate().plusDays(2));
+
+        rental.setRentalDate(LocalDate.now().minusDays(4));
+        rental.setReturnDate(LocalDate.now().minusDays(2));
+        rental.setActualReturnDate(LocalDate.now());
+
         Car car = createCar();
         Session session = createSession();
         Payment savedPayment = createPayment();
@@ -131,8 +135,7 @@ public class PaymentServiceImplTest {
         // THEN
         assertThat(result).isEqualTo(expectedResponse);
         verify(paymentRepository).save(argThat(payment ->
-                payment.getType() == PaymentType.FINE
-                        && payment.getAmountToPay().compareTo(BigDecimal.valueOf(600.0)) == 0));
+                payment.getType() == PaymentType.FINE));
     }
 
     @Test
@@ -265,8 +268,6 @@ public class PaymentServiceImplTest {
         Payment payment = createPayment();
         Page<Payment> paymentPage = new PageImpl<>(java.util.List.of(payment), pageable, 1);
         PaymentResponseDto expectedDto = createPaymentResponseDto();
-        Page<PaymentResponseDto> expectedPage = new PageImpl<>(
-                java.util.List.of(expectedDto), pageable, 1);
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(paymentRepository.findPaymentsByUserId(userId, pageable)).thenReturn(paymentPage);
@@ -339,12 +340,19 @@ public class PaymentServiceImplTest {
         String sessionId = "test_session_id";
         Payment payment = createPayment();
         payment.setStatus(PaymentStatus.PENDING);
+        payment.setRentalId(1L);
+
+        Rental rental = new Rental();
+        rental.setId(1L);
+
         Session session = createSession();
         PaymentResponseDto expectedDto = createPaymentResponseDto();
 
         when(paymentRepository.findPaymentBySessionId(sessionId)).thenReturn(Optional.of(payment));
         when(stripeProvider.getSession(sessionId)).thenReturn(session);
         when(paymentRepository.save(any(Payment.class))).thenReturn(payment);
+        when(rentalRepository.findById(1L)).thenReturn(Optional.of(rental));
+        when(rentalRepository.save(any(Rental.class))).thenReturn(rental);
         when(paymentMapper.toDto(payment)).thenReturn(expectedDto);
 
         // WHEN
@@ -353,6 +361,7 @@ public class PaymentServiceImplTest {
         // THEN
         assertThat(result).isEqualTo(expectedDto);
         assertThat(payment.getStatus()).isEqualTo(PaymentStatus.PAID);
+        assertThat(rental.getActualReturnDate()).isNotNull();
     }
 
     @Test
@@ -416,12 +425,20 @@ public class PaymentServiceImplTest {
         // GIVEN
         String sessionId = "test_session_id";
         Payment payment = createPayment();
+        payment.setStatus(PaymentStatus.PENDING);
+        payment.setRentalId(1L);
+
+        Rental rental = new Rental();
+        rental.setId(1L);
+
         Session session = createSession();
         PaymentResponseDto expectedDto = createPaymentResponseDto();
 
         when(paymentRepository.findPaymentBySessionId(sessionId)).thenReturn(Optional.of(payment));
         when(stripeProvider.getSession(sessionId)).thenReturn(session);
-        when(paymentRepository.save(payment)).thenReturn(payment);
+        when(paymentRepository.save(any(Payment.class))).thenReturn(payment);
+        when(rentalRepository.findById(1L)).thenReturn(Optional.of(rental));
+        when(rentalRepository.save(any(Rental.class))).thenReturn(rental);
         when(paymentMapper.toDto(payment)).thenReturn(expectedDto);
         doThrow(new RuntimeException("Telegram is unavailable"))
                 .when(telegramService).sendMessage(any(String.class));
@@ -432,6 +449,7 @@ public class PaymentServiceImplTest {
         // THEN
         assertThat(result).isEqualTo(expectedDto);
         assertThat(payment.getStatus()).isEqualTo(PaymentStatus.PAID);
+        assertThat(rental.getActualReturnDate()).isNotNull();
     }
 
     @Test

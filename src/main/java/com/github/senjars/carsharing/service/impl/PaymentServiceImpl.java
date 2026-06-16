@@ -23,6 +23,7 @@ import com.stripe.exception.StripeException;
 import com.stripe.model.Event;
 import com.stripe.model.checkout.Session;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Objects;
@@ -127,6 +128,13 @@ public class PaymentServiceImpl implements PaymentService {
         payment.setStatus(PaymentStatus.PAID);
         Payment savedPayment = paymentRepository.save(payment);
 
+        Rental rental = rentalRepository.findById(savedPayment.getRentalId()).orElseThrow(
+                () -> new EntityNotFoundException("Rental with id: "
+                        + savedPayment.getRentalId() + " not found"));
+
+        rental.setActualReturnDate(LocalDate.now());
+        rentalRepository.save(rental);
+
         try {
             telegramService.sendMessage(String.format(
                     "✅ **Payment Confirmed**\n\n"
@@ -179,9 +187,9 @@ public class PaymentServiceImpl implements PaymentService {
         BigDecimal paymentAmount = car.getDailyFee()
                 .multiply(BigDecimal.valueOf(Math.max(plannedDays, 1)));
 
-        if (rental.getActualReturnDate() != null
-                && rental.getActualReturnDate().isAfter(rental.getReturnDate())) {
+        LocalDateTime currentDateTime = LocalDateTime.now();
 
+        if (currentDateTime.isAfter(rental.getReturnDate().atStartOfDay())) {
             double fineMultiplayer = 1.5;
             long daysLate = ChronoUnit.DAYS.between(rental.getReturnDate(),
                     rental.getActualReturnDate());
@@ -190,8 +198,7 @@ public class PaymentServiceImpl implements PaymentService {
                     .multiply(BigDecimal.valueOf(daysLate))
                     .multiply(BigDecimal.valueOf(fineMultiplayer));
 
-            paymentAmount = paymentAmount.add(fineValue);
-            return paymentAmount;
+            return paymentAmount.add(fineValue);
         }
 
         return paymentAmount;
@@ -224,8 +231,7 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     private PaymentType determinePaymentType(Rental rental) {
-        if (rental.getActualReturnDate() != null
-                && rental.getActualReturnDate().isAfter(rental.getReturnDate())) {
+        if (LocalDateTime.now().isAfter(rental.getReturnDate().atStartOfDay())) {
             return PaymentType.FINE;
         }
         return PaymentType.PAYMENT;
