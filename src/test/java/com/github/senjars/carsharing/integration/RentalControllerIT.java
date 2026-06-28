@@ -17,7 +17,7 @@ import com.github.senjars.carsharing.model.rental.Rental;
 import com.github.senjars.carsharing.model.user.Role;
 import com.github.senjars.carsharing.model.user.RoleName;
 import com.github.senjars.carsharing.model.user.User;
-import com.github.senjars.carsharing.notify.TelegramService;
+import com.github.senjars.carsharing.notify.NotificationService;
 import com.github.senjars.carsharing.repository.CarRepository;
 import com.github.senjars.carsharing.repository.RentalRepository;
 import com.github.senjars.carsharing.repository.RoleRepository;
@@ -74,7 +74,7 @@ public class RentalControllerIT {
     private MockMvc mockMvc;
 
     @MockitoBean
-    private TelegramService telegramService;
+    private NotificationService notificationService;
 
     @MockitoBean
     private JwtUtil jwtUtil;
@@ -161,10 +161,9 @@ public class RentalControllerIT {
         rental = rentalRepository.save(rental);
 
         // WHEN & THEN
-        mockMvc.perform(post("/api/rentals/return")
+        mockMvc.perform(post("/api/rentals/{rentalId}/return", rental.getId())
                         .with(csrf())
-                        .with(SecurityMockMvcRequestPostProcessors.user(user))
-                        .param("rentalId", rental.getId().toString()))
+                        .with(SecurityMockMvcRequestPostProcessors.user(user)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.actualReturnDate").value(LocalDate.now().toString()));
 
@@ -189,10 +188,9 @@ public class RentalControllerIT {
         rental = rentalRepository.save(rental);
 
         // WHEN & THEN
-        mockMvc.perform(post("/api/rentals/return")
+        mockMvc.perform(post("/api/rentals/{rentalId}/return", rental.getId())
                         .with(csrf())
-                        .with(SecurityMockMvcRequestPostProcessors.user(user))
-                        .param("rentalId", rental.getId().toString()))
+                        .with(SecurityMockMvcRequestPostProcessors.user(user)))
                 .andExpect(status().isBadRequest());
     }
 

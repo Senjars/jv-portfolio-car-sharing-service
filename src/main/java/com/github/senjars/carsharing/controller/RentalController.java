@@ -1,6 +1,7 @@
 package com.github.senjars.carsharing.controller;
 
 import com.github.senjars.carsharing.dto.rental.CreateRentalRequestDto;
+import com.github.senjars.carsharing.dto.rental.RentalDetailsDto;
 import com.github.senjars.carsharing.dto.rental.RentalDto;
 import com.github.senjars.carsharing.model.user.User;
 import com.github.senjars.carsharing.notify.RentalNotificationScheduler;
@@ -50,7 +51,7 @@ public class RentalController {
     }
 
     @ResponseStatus(HttpStatus.OK)
-    @PostMapping("/return")
+    @PostMapping("/{rentalId}/return")
     @Operation(
             summary = "Return a car",
             description = "Returns a rented car",
@@ -61,7 +62,7 @@ public class RentalController {
             }
     )
     public RentalDto returnCar(@AuthenticationPrincipal User user,
-                               @Valid @RequestParam Long rentalId) {
+                               @PathVariable Long rentalId) {
         return rentalService.returnCar(user.getId(), rentalId);
     }
 
@@ -102,8 +103,8 @@ public class RentalController {
                             description = "Rental not found")
             }
     )
-    public RentalDto getRentalById(@AuthenticationPrincipal User user,
-                                   @PathVariable Long rentalId) {
+    public RentalDetailsDto getRentalById(@AuthenticationPrincipal User user,
+                                          @PathVariable Long rentalId) {
         return rentalService.getRentalById(rentalId, user.getId(), isManager(user));
     }
 
@@ -125,7 +126,7 @@ public class RentalController {
     }
 
     private boolean isManager(User user) {
-        return user.getAuthorities().stream().anyMatch(
-                a -> a.getAuthority().equals("MANAGER"));
+        return user.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_MANAGER"));
     }
 }

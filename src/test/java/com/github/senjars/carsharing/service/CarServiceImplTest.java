@@ -123,6 +123,8 @@ class CarServiceImplTest {
         CarDto expectedCarDto = createNewCarDto();
 
         when(carRepository.findById(car.getId())).thenReturn(Optional.of(car));
+        when(carTypeRepository.findByTypeName(updateCarDto.type()))
+                .thenReturn(Optional.of(car.getType()));
         when(carMapper.toDto(car)).thenReturn(expectedCarDto);
         when(carRepository.save(car)).thenReturn(car);
 
@@ -199,6 +201,7 @@ class CarServiceImplTest {
 
     private Car createCar() {
         Car car = new Car();
+        car.setId(1L);
         CarType type = new CarType();
         type.setTypeName(TypeName.SEDAN);
         car.setType(type);

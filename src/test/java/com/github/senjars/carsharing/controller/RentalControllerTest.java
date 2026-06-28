@@ -15,8 +15,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.senjars.carsharing.config.SecurityConfig;
+import com.github.senjars.carsharing.dto.car.CarDto;
+import com.github.senjars.carsharing.dto.car.CarShortDto;
 import com.github.senjars.carsharing.dto.rental.CreateRentalRequestDto;
+import com.github.senjars.carsharing.dto.rental.RentalDetailsDto;
 import com.github.senjars.carsharing.dto.rental.RentalDto;
+import com.github.senjars.carsharing.model.car.TypeName;
 import com.github.senjars.carsharing.model.user.Role;
 import com.github.senjars.carsharing.model.user.RoleName;
 import com.github.senjars.carsharing.model.user.User;
@@ -24,6 +28,7 @@ import com.github.senjars.carsharing.notify.RentalNotificationScheduler;
 import com.github.senjars.carsharing.security.CustomUserDetailsService;
 import com.github.senjars.carsharing.security.JwtUtil;
 import com.github.senjars.carsharing.service.RentalService;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Set;
@@ -115,10 +120,9 @@ public class RentalControllerTest {
         when(rentalService.returnCar(anyLong(), eq(rentalId))).thenReturn(expectedDto);
 
         // WHEN & THEN
-        mockMvc.perform(post("/api/rentals/return")
+        mockMvc.perform(post("/api/rentals/{rentalId}/return", rentalId)
                         .with(csrf())
-                        .with(user(mockUser))
-                        .param("rentalId", rentalId.toString()))
+                        .with(user(mockUser)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(1L));
     }
@@ -130,9 +134,8 @@ public class RentalControllerTest {
         Long rentalId = 1L;
 
         // WHEN & THEN
-        mockMvc.perform(post("/api/rentals/return")
-                        .with(csrf())
-                        .param("rentalId", rentalId.toString()))
+        mockMvc.perform(post("/api/rentals/{rentalId}/return", rentalId)
+                        .with(csrf()))
                 .andExpect(status().isForbidden());
     }
 
@@ -162,7 +165,7 @@ public class RentalControllerTest {
         // GIVEN
         Long rentalId = 1L;
         User mockUser = createMockUserWithId();
-        RentalDto expectedDto = createRentalDto();
+        RentalDetailsDto expectedDto = createRentalDetailsDto();
 
         when(rentalService.getRentalById(eq(rentalId), anyLong(), anyBoolean()))
                 .thenReturn(expectedDto);
@@ -172,7 +175,7 @@ public class RentalControllerTest {
                         .with(user(mockUser)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(1L))
-                .andExpect(jsonPath("$.carId").value(1L));
+                .andExpect(jsonPath("$.car.id").value(1L));
     }
 
     @Test
@@ -215,6 +218,17 @@ public class RentalControllerTest {
         return new RentalDto(
                 1L, 1L, 1L,
                 LocalDate.now(), LocalDate.now().plusDays(3),
+                null
+        );
+    }
+
+    private RentalDetailsDto createRentalDetailsDto() {
+        return new RentalDetailsDto(
+                1L,
+                new CarShortDto(1L, TypeName.SEDAN.name(), "Test Brand", "Test Model", BigDecimal.TEN),
+                1L,
+                LocalDate.now(),
+                LocalDate.now().plusDays(3),
                 null
         );
     }

@@ -7,7 +7,10 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.github.senjars.carsharing.dto.car.CarDto;
+import com.github.senjars.carsharing.dto.car.CarShortDto;
 import com.github.senjars.carsharing.dto.rental.CreateRentalRequestDto;
+import com.github.senjars.carsharing.dto.rental.RentalDetailsDto;
 import com.github.senjars.carsharing.dto.rental.RentalDto;
 import com.github.senjars.carsharing.exception.AccessDeniedException;
 import com.github.senjars.carsharing.exception.BadRequestException;
@@ -15,6 +18,7 @@ import com.github.senjars.carsharing.exception.EntityInventoryException;
 import com.github.senjars.carsharing.exception.EntityNotFoundException;
 import com.github.senjars.carsharing.exception.PaymentException;
 import com.github.senjars.carsharing.exception.RentalAlreadyReturnedException;
+import com.github.senjars.carsharing.mapper.CarMapper;
 import com.github.senjars.carsharing.mapper.RentalMapper;
 import com.github.senjars.carsharing.model.car.Car;
 import com.github.senjars.carsharing.model.car.CarType;
@@ -22,7 +26,7 @@ import com.github.senjars.carsharing.model.car.TypeName;
 import com.github.senjars.carsharing.model.payment.PaymentStatus;
 import com.github.senjars.carsharing.model.rental.Rental;
 import com.github.senjars.carsharing.model.user.User;
-import com.github.senjars.carsharing.notify.TelegramService;
+import com.github.senjars.carsharing.notify.NotificationService;
 import com.github.senjars.carsharing.repository.CarRepository;
 import com.github.senjars.carsharing.repository.PaymentRepository;
 import com.github.senjars.carsharing.repository.RentalRepository;
@@ -62,7 +66,10 @@ public class RentalServiceImplTest {
     private PaymentRepository paymentRepository;
 
     @Mock
-    private TelegramService telegramService;
+    private NotificationService notificationService;
+
+    @Mock
+    private CarMapper carMapper;
 
     @Test
     @DisplayName("Should throw PaymentException when user has pending payments")
@@ -170,14 +177,22 @@ public class RentalServiceImplTest {
         Long ownerId = 1L;
         Long managerId = 99L;
         Rental rental = new Rental();
+        rental.setId(rentalId);
         rental.setUserId(ownerId);
-        RentalDto expected = new RentalDto(10L, ownerId, 1L, LocalDate.now(), LocalDate.now(), null);
+        rental.setCarId(1L);
+        rental.setRentalDate(LocalDate.now());
+        rental.setReturnDate(LocalDate.now());
+        Car car = createCar();
+        RentalDetailsDto expected = new RentalDetailsDto(
+                rentalId, createCarShortDto(), ownerId,
+                rental.getRentalDate(), rental.getReturnDate(), null);
 
         when(rentalRepository.findById(rentalId)).thenReturn(Optional.of(rental));
-        when(rentalMapper.toDto(rental)).thenReturn(expected);
+        when(carRepository.findById(rental.getCarId())).thenReturn(Optional.of(car));
+        when(rentalMapper.toDetailsDto(rental, car)).thenReturn(expected);
 
         // WHEN
-        RentalDto actual = rentalService.getRentalById(rentalId, managerId, true);
+        RentalDetailsDto actual = rentalService.getRentalById(rentalId, managerId, true);
 
         // THEN
         assertThat(actual).isEqualTo(expected);
@@ -308,13 +323,15 @@ public class RentalServiceImplTest {
         Long currentUserId = 1L;
         boolean isManager = true;
         Rental rental = createRental();
-        RentalDto expected = createRentalDto();
+        Car car = createCar();
+        RentalDetailsDto expected = createRentalDetailsDto();
 
         when(rentalRepository.findById(rentalId)).thenReturn(Optional.of(rental));
-        when(rentalMapper.toDto(rental)).thenReturn(expected);
+        when(carRepository.findById(rental.getCarId())).thenReturn(Optional.of(car));
+        when(rentalMapper.toDetailsDto(rental, car)).thenReturn(expected);
 
         // WHEN
-        RentalDto actual = rentalService.getRentalById(rentalId, currentUserId, isManager);
+        RentalDetailsDto actual = rentalService.getRentalById(rentalId, currentUserId, isManager);
 
         // THEN
         assertThat(actual).isEqualTo(expected);
@@ -354,6 +371,32 @@ public class RentalServiceImplTest {
                 LocalDate.now(), LocalDate.now().plusDays(3),
                 null
         );
+    }
+
+    private RentalDetailsDto createRentalDetailsDto() {
+        return new RentalDetailsDto(
+                1L,
+                createCarShortDto(),
+                1L,
+                LocalDate.now(),
+                LocalDate.now().plusDays(3),
+                null
+        );
+    }
+
+    private CarShortDto createCarShortDto() {
+        return new CarShortDto(
+                1L,
+                TypeName.SEDAN.name(),
+                "Test Brand",
+                "Test Model",
+                BigDecimal.valueOf(100)
+        );
+    }
+
+    private CarDto createCarDto() {
+        return new CarDto(1L, TypeName.SEDAN, "Test Brand", "Test Model", 1,
+                BigDecimal.valueOf(100));
     }
 
     private Rental createRental() {
