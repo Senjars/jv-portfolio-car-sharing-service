@@ -45,6 +45,7 @@ class PaymentExpirationSchedulerTest {
         verify(paymentRepository, times(1))
                 .findAllByStatusAndCreatedAtBefore(eq(PaymentStatus.PENDING), any(LocalDateTime.class));
         verify(paymentRepository, never()).save(any(Payment.class));
+        verify(paymentRepository, never()).saveAll(any());
     }
 
     @Test
@@ -70,6 +71,6 @@ class PaymentExpirationSchedulerTest {
         assertEquals(PaymentStatus.EXPIRED, payment1.getStatus());
         assertEquals(PaymentStatus.EXPIRED, payment2.getStatus());
 
-        verify(paymentRepository, times(2)).save(any(Payment.class));
+        verify(paymentRepository).saveAll(expiredPayments);
     }
 }

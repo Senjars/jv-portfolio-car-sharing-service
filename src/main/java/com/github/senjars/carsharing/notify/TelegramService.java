@@ -10,7 +10,7 @@ import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
 @Component
 @RequiredArgsConstructor
-public class TelegramService {
+public class TelegramService implements NotificationService {
 
     private final TelegramBot telegramBot;
     private final TelegramConfig telegramConfig;
