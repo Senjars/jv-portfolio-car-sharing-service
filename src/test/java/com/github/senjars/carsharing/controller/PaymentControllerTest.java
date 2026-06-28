@@ -74,7 +74,7 @@ public class PaymentControllerTest {
         CreatePaymentRequestDto requestDto = new CreatePaymentRequestDto(1L, PaymentType.PAYMENT);
         PaymentResponseDto responseDto = createPaymentResponseDto();
 
-        when(paymentService.createPayment(anyLong(), eq(requestDto.rentalId())))
+        when(paymentService.createPayment(anyLong(), eq(requestDto.rentalId()), eq(requestDto.type())))
                 .thenReturn(responseDto);
 
         // WHEN & THEN
@@ -114,7 +114,7 @@ public class PaymentControllerTest {
         User mockUser = createUser();
         CreatePaymentRequestDto requestDto = new CreatePaymentRequestDto(invalidId, PaymentType.PAYMENT);
 
-        when(paymentService.createPayment(anyLong(), anyLong()))
+        when(paymentService.createPayment(anyLong(), anyLong(), eq(PaymentType.PAYMENT)))
                 .thenThrow(new EntityNotFoundException("Rental not found"));
 
         // WHEN & THEN
@@ -133,14 +133,15 @@ public class PaymentControllerTest {
         User mockUser = createUser();
         PaymentResponseDto responseDto = createPaymentResponseDto();
 
-        when(paymentService.renewExistingPayment(anyLong(), eq(1L)))
+        when(paymentService.renewExistingPayment(anyLong(), eq(1L), eq(PaymentType.PAYMENT)))
                 .thenReturn(responseDto);
 
         // WHEN & THEN
         mockMvc.perform(post("/api/payments/renew")
                         .with(csrf())
                         .with(user(mockUser))
-                        .param("rentalId", "1"))
+                        .param("rentalId", "1")
+                        .param("type", PaymentType.PAYMENT.name()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(responseDto.id()))
                 .andExpect(jsonPath("$.rentalId").value(responseDto.rentalId()))

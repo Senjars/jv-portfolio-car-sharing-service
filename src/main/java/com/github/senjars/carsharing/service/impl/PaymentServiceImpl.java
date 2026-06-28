@@ -12,7 +12,7 @@ import com.github.senjars.carsharing.model.payment.PaymentStatus;
 import com.github.senjars.carsharing.model.payment.PaymentType;
 import com.github.senjars.carsharing.model.rental.Rental;
 import com.github.senjars.carsharing.model.user.User;
-import com.github.senjars.carsharing.notify.TelegramService;
+import com.github.senjars.carsharing.notify.NotificationService;
 import com.github.senjars.carsharing.repository.CarRepository;
 import com.github.senjars.carsharing.repository.PaymentRepository;
 import com.github.senjars.carsharing.repository.RentalRepository;
@@ -29,14 +29,18 @@ import java.time.temporal.ChronoUnit;
 import java.util.Objects;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class PaymentServiceImpl implements PaymentService {
+
+    private static final double FINE_MULTIPLIER = 1.5;
 
     private final PaymentRepository paymentRepository;
     private final RentalRepository rentalRepository;
@@ -44,14 +48,14 @@ public class PaymentServiceImpl implements PaymentService {
     private final UserRepository userRepository;
     private final StripeProvider stripeProvider;
     private final PaymentMapper paymentMapper;
-    private final TelegramService telegramService;
+    private final NotificationService notificationService;
 
     @Override
     @Transactional
-    public PaymentResponseDto createPayment(Long userId, Long rentalId) {
+    public PaymentResponseDto createPayment(Long userId, Long rentalId, PaymentType type) {
         Rental rental = getVerifiedRental(userId, rentalId);
 
-        Optional<Payment> existingPayment = paymentRepository.findByRentalId(rentalId);
+        Optional<Payment> existingPayment = paymentRepository.findByRentalIdAndType(rentalId, type);
 
         if (existingPayment.isPresent()) {
             Payment payment = existingPayment.get();
@@ -62,7 +66,7 @@ public class PaymentServiceImpl implements PaymentService {
             }
 
             if (payment.getStatus() == PaymentStatus.EXPIRED) {
-                return renewExistingPayment(userId, rentalId);
+                return renewExistingPayment(userId, rentalId, type);
             }
 
             if (payment.getStatus() == PaymentStatus.PENDING) {
@@ -70,15 +74,15 @@ public class PaymentServiceImpl implements PaymentService {
             }
         }
 
-        return createNewPayment(rental);
+        return createNewPayment(rental, type);
     }
 
     @Override
     @Transactional
-    public PaymentResponseDto renewExistingPayment(Long userId, Long rentalId) {
+    public PaymentResponseDto renewExistingPayment(Long userId, Long rentalId, PaymentType type) {
         getVerifiedRental(userId, rentalId);
 
-        Payment payment = paymentRepository.findByRentalId(rentalId)
+        Payment payment = paymentRepository.findByRentalIdAndType(rentalId, type)
                 .orElseThrow(() -> new EntityNotFoundException("Payment not found"));
 
         return internalRenew(payment, rentalId);
@@ -88,17 +92,23 @@ public class PaymentServiceImpl implements PaymentService {
     @Transactional(readOnly = true)
     public Page<PaymentResponseDto> getPaymentsByUserId(User user,
                                                         Long userId, Pageable pageable) {
+        boolean manager = isManager(user);
 
-        if (userRepository.findById(userId).isEmpty()) {
+        if (manager && userId == null) {
+            return paymentRepository.findAll(pageable).map(paymentMapper::toDto);
+        }
+
+        if (!manager && userId != null && !Objects.equals(user.getId(), userId)) {
+            throw new AccessDeniedException("You cannot view payments of another user");
+        }
+
+        Long targetUserId = (manager && userId != null) ? userId : user.getId();
+
+        if (userRepository.findById(targetUserId).isEmpty()) {
             throw new EntityNotFoundException("User not found");
         }
 
-        if (!Objects.equals(user.getId(), userId) && user.getAuthorities().stream().noneMatch(
-                a -> a.getAuthority().equals("ROLE_MANAGER"))) {
-            throw new AccessDeniedException("You cannot view this payment by another user");
-        }
-
-        return paymentRepository.findPaymentsByUserId(userId, pageable)
+        return paymentRepository.findPaymentsByUserId(targetUserId, pageable)
                 .map(paymentMapper::toDto);
     }
 
@@ -128,15 +138,8 @@ public class PaymentServiceImpl implements PaymentService {
         payment.setStatus(PaymentStatus.PAID);
         Payment savedPayment = paymentRepository.save(payment);
 
-        Rental rental = rentalRepository.findById(savedPayment.getRentalId()).orElseThrow(
-                () -> new EntityNotFoundException("Rental with id: "
-                        + savedPayment.getRentalId() + " not found"));
-
-        rental.setActualReturnDate(LocalDate.now());
-        rentalRepository.save(rental);
-
         try {
-            telegramService.sendMessage(String.format(
+            notificationService.sendMessage(String.format(
                     "✅ **Payment Confirmed**\n\n"
                             + "💰 **Amount:** %s\n"
                             + "🆔 **Payment ID:** %d\n"
@@ -144,11 +147,11 @@ public class PaymentServiceImpl implements PaymentService {
                             + "📌 **Type:** %s",
                     savedPayment.getAmountToPay(),
                     savedPayment.getId(),
-                    savedPayment.getRentalId(),
+                    savedPayment.getRental().getId(),
                     savedPayment.getType()
             ));
         } catch (Exception e) {
-            System.err.println("Failed to send Telegram notification: " + e.getMessage());
+            log.warn("Failed to send Telegram notification", e);
         }
 
         return paymentMapper.toDto(savedPayment);
@@ -178,7 +181,7 @@ public class PaymentServiceImpl implements PaymentService {
         }
     }
 
-    private BigDecimal calculatePayment(Rental rental) {
+    private BigDecimal calculatePayment(Rental rental, PaymentType type) {
         long plannedDays = ChronoUnit.DAYS.between(rental.getRentalDate(), rental.getReturnDate());
 
         Car car = carRepository.findById(rental.getCarId()).orElseThrow(
@@ -187,16 +190,16 @@ public class PaymentServiceImpl implements PaymentService {
         BigDecimal paymentAmount = car.getDailyFee()
                 .multiply(BigDecimal.valueOf(Math.max(plannedDays, 1)));
 
-        LocalDateTime currentDateTime = LocalDateTime.now();
+        if (type == PaymentType.FINE) {
+            LocalDate actualDate = rental.getActualReturnDate() != null
+                    ? rental.getActualReturnDate()
+                    : LocalDate.now();
 
-        if (currentDateTime.isAfter(rental.getReturnDate().atStartOfDay())) {
-            double fineMultiplayer = 1.5;
-            long daysLate = ChronoUnit.DAYS.between(rental.getReturnDate(),
-                    rental.getActualReturnDate());
+            long daysLate = ChronoUnit.DAYS.between(rental.getReturnDate(), actualDate);
 
             BigDecimal fineValue = car.getDailyFee()
-                    .multiply(BigDecimal.valueOf(daysLate))
-                    .multiply(BigDecimal.valueOf(fineMultiplayer));
+                    .multiply(BigDecimal.valueOf(Math.max(daysLate, 1)))
+                    .multiply(BigDecimal.valueOf(FINE_MULTIPLIER));
 
             return paymentAmount.add(fineValue);
         }
@@ -214,27 +217,20 @@ public class PaymentServiceImpl implements PaymentService {
         return rental;
     }
 
-    private PaymentResponseDto createNewPayment(Rental rental) {
-        BigDecimal amountToPay = calculatePayment(rental);
+    private PaymentResponseDto createNewPayment(Rental rental, PaymentType type) {
+        BigDecimal amountToPay = calculatePayment(rental, type);
         String description = "Payment for rental with id: " + rental.getId();
         Session session = createStripeSession(amountToPay, description, rental.getId());
 
         Payment payment = new Payment();
-        payment.setRentalId(rental.getId());
+        payment.setRental(rental);
         payment.setStatus(PaymentStatus.PENDING);
         payment.setAmountToPay(amountToPay);
         payment.setSessionId(session.getId());
         payment.setSessionUrl(session.getUrl());
-        payment.setType(determinePaymentType(rental));
+        payment.setType(type);
 
         return paymentMapper.toDto(paymentRepository.save(payment));
-    }
-
-    private PaymentType determinePaymentType(Rental rental) {
-        if (LocalDateTime.now().isAfter(rental.getReturnDate().atStartOfDay())) {
-            return PaymentType.FINE;
-        }
-        return PaymentType.PAYMENT;
     }
 
     private Session createStripeSession(BigDecimal amountToPay, String description, Long rentalId) {
@@ -258,5 +254,10 @@ public class PaymentServiceImpl implements PaymentService {
         payment.setCreatedAt(LocalDateTime.now());
 
         return paymentMapper.toDto(paymentRepository.save(payment));
+    }
+
+    private boolean isManager(User user) {
+        return user.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_MANAGER"));
     }
 }
