@@ -48,3 +48,24 @@ databaseChangeLog:
                     defaultValueComputed: CURRENT_TIMESTAMP
                     constraints:
                       nullable: false
+
+  - changeSet:
+      id: add-fk-payments-rental-id
+      author: senjars
+      changes:
+        - addForeignKeyConstraint:
+            baseTableName: payments
+            baseColumnNames: rental_id
+            constraintName: fk_payments_rental_id
+            referencedTableName: rentals
+            referencedColumnNames: id
+            onDelete: RESTRICT
+
+  - changeSet:
+      id: add-unique-rental-payment-type
+      author: senjars
+      changes:
+        - addUniqueConstraint:
+            tableName: payments
+            columnNames: rental_id, payment_type
+            constraintName: uq_payments_rental_id_payment_type

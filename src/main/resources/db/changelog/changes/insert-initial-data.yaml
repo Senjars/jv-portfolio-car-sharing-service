@@ -52,3 +52,29 @@ databaseChangeLog:
             columns:
               - column: { name: user_id, valueNumeric: 2 }
               - column: { name: role_id, valueNumeric: 2 }
+
+  - changeSet:
+      id: insert-default-car-types
+      author: senjars
+      context: "!test"
+      changes:
+        - insert:
+            tableName: car_types
+            columns:
+              - column: { name: id, valueNumeric: 1 }
+              - column: { name: type_name, value: "SEDAN" }
+        - insert:
+            tableName: car_types
+            columns:
+              - column: { name: id, valueNumeric: 2 }
+              - column: { name: type_name, value: "SUV" }
+        - insert:
+            tableName: car_types
+            columns:
+              - column: { name: id, valueNumeric: 3 }
+              - column: { name: type_name, value: "HATCHBACK" }
+        - insert:
+            tableName: car_types
+            columns:
+              - column: { name: id, valueNumeric: 4 }
+              - column: { name: type_name, value: "UNIVERSAL" }
