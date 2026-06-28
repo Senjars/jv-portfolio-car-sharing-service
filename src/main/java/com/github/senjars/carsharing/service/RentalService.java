@@ -1,6 +1,7 @@
 package com.github.senjars.carsharing.service;
 
 import com.github.senjars.carsharing.dto.rental.CreateRentalRequestDto;
+import com.github.senjars.carsharing.dto.rental.RentalDetailsDto;
 import com.github.senjars.carsharing.dto.rental.RentalDto;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -15,5 +16,5 @@ public interface RentalService {
 
     Page<RentalDto> getRentalsByUserIdAndStatus(Long userId, Boolean isActive, Pageable pageable);
 
-    RentalDto getRentalById(Long rentalId, Long currentUserId, boolean isManager);
+    RentalDetailsDto getRentalById(Long rentalId, Long currentUserId, boolean isManager);
 }

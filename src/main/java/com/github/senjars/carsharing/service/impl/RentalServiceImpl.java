@@ -1,6 +1,7 @@
 package com.github.senjars.carsharing.service.impl;
 
 import com.github.senjars.carsharing.dto.rental.CreateRentalRequestDto;
+import com.github.senjars.carsharing.dto.rental.RentalDetailsDto;
 import com.github.senjars.carsharing.dto.rental.RentalDto;
 import com.github.senjars.carsharing.exception.AccessDeniedException;
 import com.github.senjars.carsharing.exception.BadRequestException;
@@ -12,19 +13,21 @@ import com.github.senjars.carsharing.mapper.RentalMapper;
 import com.github.senjars.carsharing.model.car.Car;
 import com.github.senjars.carsharing.model.payment.PaymentStatus;
 import com.github.senjars.carsharing.model.rental.Rental;
-import com.github.senjars.carsharing.notify.TelegramService;
+import com.github.senjars.carsharing.notify.NotificationService;
 import com.github.senjars.carsharing.repository.CarRepository;
 import com.github.senjars.carsharing.repository.PaymentRepository;
 import com.github.senjars.carsharing.repository.RentalRepository;
 import com.github.senjars.carsharing.service.RentalService;
 import java.time.LocalDate;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class RentalServiceImpl implements RentalService {
@@ -32,7 +35,7 @@ public class RentalServiceImpl implements RentalService {
     private final RentalRepository rentalRepository;
     private final RentalMapper rentalMapper;
     private final CarRepository carRepository;
-    private final TelegramService telegramService;
+    private final NotificationService notificationService;
     private final PaymentRepository paymentRepository;
 
     @Override
@@ -45,7 +48,7 @@ public class RentalServiceImpl implements RentalService {
 
         if (hasPendingPayment) {
             throw new PaymentException("You have an unpaid rental. "
-                    + "Please settle your outstanding payments before borrowing new books/cars.");
+                    + "Please settle your outstanding payments before renting a new car.");
         }
         if (requestDto.rentalDate().isAfter(requestDto.returnDate())) {
             throw new BadRequestException("Rental date must be before return date");
@@ -67,7 +70,7 @@ public class RentalServiceImpl implements RentalService {
         Rental savedRental = rentalRepository.save(rental);
 
         try {
-            telegramService.sendMessage(String.format(
+            notificationService.sendMessage(String.format(
                     "🚗 **New Rental Created**\n\n"
                             + "👤 **User ID:** %d\n"
                             + "🆔 **Car ID:** %d\n"
@@ -79,7 +82,7 @@ public class RentalServiceImpl implements RentalService {
                     requestDto.returnDate()
             ));
         } catch (Exception e) {
-            System.err.println("Failed to send Telegram notification: " + e.getMessage());
+            log.warn("Failed to send Telegram notification", e);
         }
 
         return rentalMapper.toDto(savedRental);
@@ -116,7 +119,6 @@ public class RentalServiceImpl implements RentalService {
     @Transactional(readOnly = true)
     public Page<RentalDto> getRentalsByUserIdAndStatus(Long userId, Boolean isActive,
                                                        Pageable pageable) {
-
         Specification<Rental> spec = Specification.where(null);
 
         if (userId != null) {
@@ -135,7 +137,7 @@ public class RentalServiceImpl implements RentalService {
 
     @Override
     @Transactional(readOnly = true)
-    public RentalDto getRentalById(Long rentalId, Long currentUserId, boolean isManager) {
+    public RentalDetailsDto getRentalById(Long rentalId, Long currentUserId, boolean isManager) {
         Rental rental = rentalRepository.findById(rentalId).orElseThrow(
                 () -> new EntityNotFoundException("Rental with id " + rentalId + " not found"));
 
@@ -143,6 +145,9 @@ public class RentalServiceImpl implements RentalService {
             throw new AccessDeniedException("You are not authorized to view this rental");
         }
 
-        return rentalMapper.toDto(rental);
+        Car car = carRepository.findById(rental.getCarId()).orElseThrow(
+                () -> new EntityNotFoundException("Car not found"));
+
+        return rentalMapper.toDetailsDto(rental, car);
     }
 }

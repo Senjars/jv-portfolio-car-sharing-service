@@ -2,6 +2,7 @@ package com.github.senjars.carsharing.controller;
 
 import com.github.senjars.carsharing.dto.payment.CreatePaymentRequestDto;
 import com.github.senjars.carsharing.dto.payment.PaymentResponseDto;
+import com.github.senjars.carsharing.model.payment.PaymentType;
 import com.github.senjars.carsharing.model.user.User;
 import com.github.senjars.carsharing.service.PaymentService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -44,9 +45,13 @@ public class PaymentController {
             }
     )
     @PreAuthorize("hasAnyRole('CUSTOMER', 'MANAGER')")
-    public PaymentResponseDto createPayment(@AuthenticationPrincipal User user,
-                                          @Valid @RequestBody CreatePaymentRequestDto requestDto) {
-        return paymentService.createPayment(user.getId(), requestDto.rentalId());
+    public PaymentResponseDto createPayment(
+            @AuthenticationPrincipal User user,
+            @Valid @RequestBody CreatePaymentRequestDto createPaymentRequestDto) {
+        return paymentService.createPayment(
+                user.getId(),
+                createPaymentRequestDto.rentalId(),
+                createPaymentRequestDto.type());
     }
 
     @ResponseStatus(HttpStatus.OK)
@@ -63,8 +68,9 @@ public class PaymentController {
     )
     @PreAuthorize("hasAnyRole('CUSTOMER', 'MANAGER')")
     public PaymentResponseDto renewPayment(@AuthenticationPrincipal User user,
-                                           @RequestParam Long rentalId) {
-        return paymentService.renewExistingPayment(user.getId(), rentalId);
+                                           @RequestParam Long rentalId,
+                                           @RequestParam PaymentType type) {
+        return paymentService.renewExistingPayment(user.getId(), rentalId, type);
     }
 
     @ResponseStatus(HttpStatus.OK)

@@ -13,7 +13,7 @@ import org.springframework.stereotype.Component;
 public class RentalNotificationScheduler {
 
     private final RentalRepository rentalRepository;
-    private final TelegramService telegramService;
+    private final NotificationService notificationService;
 
     @Scheduled(fixedRateString = "PT24H")
     public void checkOverdueRentals() {
@@ -21,7 +21,7 @@ public class RentalNotificationScheduler {
                 .findAllByReturnDateBeforeAndActualReturnDateIsNull(LocalDate.now());
 
         if (overdueRentals.isEmpty()) {
-            telegramService.sendMessage("✅ **No rentals overdue today!**\n"
+            notificationService.sendMessage("✅ **No rentals overdue today!**\n"
                     + "All cars are back in the fleet.");
             return;
         }
@@ -43,6 +43,6 @@ public class RentalNotificationScheduler {
             ));
         }
 
-        telegramService.sendMessage(builder.toString());
+        notificationService.sendMessage(builder.toString());
     }
 }

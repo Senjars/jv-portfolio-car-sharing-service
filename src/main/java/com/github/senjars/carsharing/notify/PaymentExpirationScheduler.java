@@ -14,11 +14,11 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class PaymentExpirationScheduler {
 
-    private static final int EXPIRATION_HOURS = 1;
+    private static final int EXPIRATION_HOURS = 24;
     private final PaymentRepository paymentRepository;
 
     @Transactional
-    @Scheduled(fixedRateString = "PT1H")
+    @Scheduled(fixedRateString = "PT24H")
     public void checkExpiredPayments() {
         LocalDateTime expirationThreshold = LocalDateTime.now().minusHours(EXPIRATION_HOURS);
 
@@ -26,11 +26,10 @@ public class PaymentExpirationScheduler {
                 PaymentStatus.PENDING, expirationThreshold);
 
         if (!expiredPayments.isEmpty()) {
-            expiredPayments
-                    .forEach(payment -> {
-                        payment.setStatus(PaymentStatus.EXPIRED);
-                        paymentRepository.save(payment);
-                    });
+            expiredPayments.forEach(payment -> {
+                payment.setStatus(PaymentStatus.EXPIRED);
+            });
+            paymentRepository.saveAll(expiredPayments);
         }
     }
 }

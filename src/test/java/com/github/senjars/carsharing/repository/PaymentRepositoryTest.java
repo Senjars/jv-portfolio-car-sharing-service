@@ -60,7 +60,7 @@ public class PaymentRepositoryTest {
         Rental rental = createRental(user.getId(), car.getId());
         rentalRepository.save(rental);
 
-        paymentRepository.save(createPayment(rental.getId()));
+        paymentRepository.save(createPayment(rental));
 
         Pageable pageable = PageRequest.of(0, 10);
 
@@ -70,7 +70,7 @@ public class PaymentRepositoryTest {
         // THEN
         assertThat(paymentPage.getContent()).isNotEmpty();
         assertThat(paymentPage.getTotalElements()).isEqualTo(1L);
-        assertThat(paymentPage.getContent().get(0).getRentalId()).isEqualTo(rental.getId());
+        assertThat(paymentPage.getContent().get(0).getRental().getId()).isEqualTo(rental.getId());
     }
 
     @Test
@@ -95,7 +95,7 @@ public class PaymentRepositoryTest {
         User user = userRepository.save(createUser());
         Car car = carRepository.save(createCar());
         Rental rental = rentalRepository.save(createRental(user.getId(), car.getId()));
-        Payment payment = paymentRepository.save(createPayment(rental.getId()));
+        Payment payment = paymentRepository.save(createPayment(rental));
 
         // WHEN
         Optional<Payment> foundPayment = paymentRepository
@@ -126,7 +126,7 @@ public class PaymentRepositoryTest {
         User user = userRepository.save(createUser());
         Car car = carRepository.save(createCar());
         Rental rental = rentalRepository.save(createRental(user.getId(), car.getId()));
-        Payment payment = paymentRepository.save(createPayment(rental.getId()));
+        Payment payment = paymentRepository.save(createPayment(rental));
 
         // WHEN
         List<Payment> payments = paymentRepository.findAllByStatusAndCreatedAtBefore(
@@ -158,7 +158,7 @@ public class PaymentRepositoryTest {
         Long userId = userRepository.save(createUser()).getId();
         Car car = carRepository.save(createCar());
         Rental rental = rentalRepository.save(createRental(userId,car.getId()));
-        Payment payment = paymentRepository.save(createPayment(rental.getId()));
+        paymentRepository.save(createPayment(rental));
 
         // WHEN
         boolean exists = paymentRepository.existsByUserIdAndStatus(userId, PaymentStatus.PAID);
@@ -187,14 +187,14 @@ public class PaymentRepositoryTest {
         Long userId = userRepository.save(createUser()).getId();
         Car car = carRepository.save(createCar());
         Rental rental = rentalRepository.save(createRental(userId, car.getId()));
-        paymentRepository.save(createPayment(rental.getId()));
+        paymentRepository.save(createPayment(rental));
 
         // WHEN
         Optional<Payment> foundPayment = paymentRepository.findByRentalId(rental.getId());
 
         // THEN
         assertThat(foundPayment).isPresent();
-        assertThat(foundPayment.get().getRentalId()).isEqualTo(rental.getId());
+        assertThat(foundPayment.get().getRental().getId()).isEqualTo(rental.getId());
     }
 
     @Test
@@ -240,12 +240,12 @@ public class PaymentRepositoryTest {
         return car;
     }
 
-    private Payment createPayment(Long rentalId) {
+    private Payment createPayment(Rental rental) {
         Payment payment = new Payment();
-        payment.setSessionId(randomUUID().toString());
-        payment.setRentalId(rentalId);
+        payment.setRental(rental);
         payment.setType(PaymentType.FINE);
         payment.setStatus(PaymentStatus.PAID);
+        payment.setAmountToPay(BigDecimal.valueOf(250));
         payment.setCreatedAt(LocalDate.now().atStartOfDay());
         payment.setSessionId(randomUUID().toString());
         payment.setSessionUrl("https://stripe.com/session/" + randomUUID().toString());
