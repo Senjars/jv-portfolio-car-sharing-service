@@ -21,11 +21,13 @@ public interface UserMapper {
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "roles", ignore = true)
     @Mapping(target = "password", ignore = true)
+    @Mapping(target = "authorities", ignore = true)
     User toEntity(UserRegistrationRequestDto requestDto);
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "roles", ignore = true)
     @Mapping(target = "password", ignore = true)
+    @Mapping(target = "authorities", ignore = true)
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
     void updateUserDto(UpdateUserInfoDto updateUserInfoDto, @MappingTarget User user);
 
@@ -35,6 +37,7 @@ public interface UserMapper {
     @Mapping(target = "firstName", ignore = true)
     @Mapping(target = "lastName", ignore = true)
     @Mapping(target = "roles", source = "roleNames")
+    @Mapping(target = "authorities", ignore = true)
     void updateUserRoleDto(UpdateUserRoleDto updateUserRoleDto, @MappingTarget User user);
 
     default RoleName map(Role role) {

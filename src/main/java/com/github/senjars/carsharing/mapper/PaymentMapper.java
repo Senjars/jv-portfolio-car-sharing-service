@@ -8,8 +8,6 @@ import org.mapstruct.Mapping;
 @Mapper(componentModel = "spring")
 public interface PaymentMapper {
 
-    @Mapping(target = "rentalId", expression = "java(String.valueOf(payment.getRental().getId()))")
+    @Mapping(target = "rentalId", source = "rental.id")
     PaymentResponseDto toDto(Payment payment);
-
-    Payment toEntity(PaymentResponseDto paymentResponseDto);
 }

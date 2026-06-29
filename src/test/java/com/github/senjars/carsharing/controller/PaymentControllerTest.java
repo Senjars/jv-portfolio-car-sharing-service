@@ -220,8 +220,8 @@ public class PaymentControllerTest {
 
     private PaymentResponseDto createPaymentResponseDto() {
         return new PaymentResponseDto(
-                "1",
-                "101",
+                1L,
+                101L,
                 PaymentStatus.PENDING,
                 PaymentType.PAYMENT,
                 new BigDecimal("299.99"),
