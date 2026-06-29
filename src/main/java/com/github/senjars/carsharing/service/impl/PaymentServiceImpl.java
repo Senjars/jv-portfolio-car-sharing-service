@@ -2,6 +2,7 @@ package com.github.senjars.carsharing.service.impl;
 
 import com.github.senjars.carsharing.dto.payment.PaymentResponseDto;
 import com.github.senjars.carsharing.exception.AccessDeniedException;
+import com.github.senjars.carsharing.exception.BadRequestException;
 import com.github.senjars.carsharing.exception.EntityNotFoundException;
 import com.github.senjars.carsharing.exception.PaymentAlreadyProcessedException;
 import com.github.senjars.carsharing.exception.PaymentException;
@@ -182,13 +183,8 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     private BigDecimal calculatePayment(Rental rental, PaymentType type) {
-        long plannedDays = ChronoUnit.DAYS.between(rental.getRentalDate(), rental.getReturnDate());
-
         Car car = carRepository.findById(rental.getCarId()).orElseThrow(
                 () -> new EntityNotFoundException("Car not found"));
-
-        BigDecimal paymentAmount = car.getDailyFee()
-                .multiply(BigDecimal.valueOf(Math.max(plannedDays, 1)));
 
         if (type == PaymentType.FINE) {
             LocalDate actualDate = rental.getActualReturnDate() != null
@@ -197,14 +193,19 @@ public class PaymentServiceImpl implements PaymentService {
 
             long daysLate = ChronoUnit.DAYS.between(rental.getReturnDate(), actualDate);
 
-            BigDecimal fineValue = car.getDailyFee()
-                    .multiply(BigDecimal.valueOf(Math.max(daysLate, 1)))
-                    .multiply(BigDecimal.valueOf(FINE_MULTIPLIER));
+            if (daysLate <= 0) {
+                throw new BadRequestException(
+                        "Fine payment can be created only for overdue rentals");
+            }
 
-            return paymentAmount.add(fineValue);
+            return car.getDailyFee()
+                    .multiply(BigDecimal.valueOf(daysLate))
+                    .multiply(BigDecimal.valueOf(FINE_MULTIPLIER));
         }
 
-        return paymentAmount;
+        long plannedDays = ChronoUnit.DAYS.between(rental.getRentalDate(), rental.getReturnDate());
+        return car.getDailyFee()
+                .multiply(BigDecimal.valueOf(Math.max(plannedDays, 1)));
     }
 
     private Rental getVerifiedRental(Long userId, Long rentalId) {

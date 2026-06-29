@@ -120,9 +120,9 @@ public class PaymentServiceImplTest {
         Session session = createSession();
         Payment savedPayment = createPayment();
         savedPayment.setType(PaymentType.FINE);
-        savedPayment.setAmountToPay(BigDecimal.valueOf(500.0));
+        savedPayment.setAmountToPay(BigDecimal.valueOf(300.0));
         PaymentResponseDto expectedResponse = createPaymentResponseDto(
-                PaymentStatus.PENDING, PaymentType.FINE, BigDecimal.valueOf(500.0));
+                PaymentStatus.PENDING, PaymentType.FINE, BigDecimal.valueOf(300.0));
 
         when(rentalRepository.findById(rentalId)).thenReturn(Optional.of(rental));
         when(paymentRepository.findByRentalIdAndType(rentalId, PaymentType.FINE))
@@ -139,7 +139,7 @@ public class PaymentServiceImplTest {
         assertThat(result).isEqualTo(expectedResponse);
         verify(paymentRepository).save(argThat(payment ->
                 payment.getType() == PaymentType.FINE
-                        && payment.getAmountToPay().compareTo(BigDecimal.valueOf(500)) == 0));
+                        && payment.getAmountToPay().compareTo(BigDecimal.valueOf(300)) == 0));
     }
 
     @Test
@@ -567,8 +567,8 @@ public class PaymentServiceImplTest {
                                                         PaymentType type,
                                                         BigDecimal amountToPay) {
         return new PaymentResponseDto(
-                "1",
-                "1",
+                1L,
+                1L,
                 status,
                 type,
                 amountToPay,

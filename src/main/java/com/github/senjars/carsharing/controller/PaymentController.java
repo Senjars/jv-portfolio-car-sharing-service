@@ -44,7 +44,7 @@ public class PaymentController {
                             description = "Rental not found")
             }
     )
-    @PreAuthorize("hasAnyRole('CUSTOMER', 'MANAGER')")
+    @PreAuthorize("hasRole('CUSTOMER')")
     public PaymentResponseDto createPayment(
             @AuthenticationPrincipal User user,
             @Valid @RequestBody CreatePaymentRequestDto createPaymentRequestDto) {
@@ -66,7 +66,7 @@ public class PaymentController {
                             description = "Bad request"),
             }
     )
-    @PreAuthorize("hasAnyRole('CUSTOMER', 'MANAGER')")
+    @PreAuthorize("hasRole('CUSTOMER')")
     public PaymentResponseDto renewPayment(@AuthenticationPrincipal User user,
                                            @RequestParam Long rentalId,
                                            @RequestParam PaymentType type) {
