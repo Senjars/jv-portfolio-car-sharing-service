@@ -5,8 +5,8 @@ import com.github.senjars.carsharing.model.payment.PaymentType;
 import java.math.BigDecimal;
 
 public record PaymentResponseDto(
-        String id,
-        String rentalId,
+        Long id,
+        Long rentalId,
         PaymentStatus status,
         PaymentType type,
         BigDecimal amountToPay,

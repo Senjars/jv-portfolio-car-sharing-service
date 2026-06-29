@@ -23,6 +23,7 @@ public interface RentalMapper {
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "actualReturnDate", ignore = true)
+    @Mapping(target = "userId", ignore = true)
     Rental toEntity(CreateRentalRequestDto createRentalRequestDto);
 
 }
