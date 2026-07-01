@@ -29,7 +29,7 @@ services:
       - .env
     environment:
       DB_URL: jdbc:mysql://db:3306/carsharing_db
-      DB_USERNAME: root
+      DB_USERNAME: ${DB_USERNAME}
       DB_PASSWORD: ${DB_PASSWORD}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
